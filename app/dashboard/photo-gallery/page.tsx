@@ -1,63 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DataTable } from "@/components/ui/data-table";
 import FilterBar from "./components/FilterBar";
 import { columns, Photo } from "./components/columns";
-
-const mockData: Photo[] = [
-  {
-    id: "1",
-    galleryId: "00596",
-    cover: "img1.jpg",
-    title: "Annual Day 2025",
-    eventDate: "12 Jun 2025",
-    photosCount: 10,
-    status: "New",
-    visibility: true,
-  },
-  {
-    id: "2",
-    galleryId: "00597",
-    cover: "img2.jpg",
-    title: "Independence Day Celebrations",
-    eventDate: "12 Jun 2025",
-    photosCount: 10,
-    status: "Deleted",
-    visibility: false,
-  },
-  {
-    id: "3",
-    galleryId: "00598",
-    cover: "img3.jpg",
-    title: "Republic Day Celebrations",
-    eventDate: "12 Jun 2025",
-    photosCount: 20,
-    status: "Posted",
-    visibility: true,
-  },
-];
+import AddGalleryDialog from "./components/AddGalleryDialog";
+import { supabase } from "@/supabase/client";
+import Tables from "@/lib/tables";
 
 export default function PhotoGalleryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedRows, setSelectedRows] = useState<(string | number)[]>([]);
+  const [data, setData] = useState<Photo[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const filteredData = mockData.filter((item) =>
-    item.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const fetchData = async () => {
+    setLoading(true);
+    const { data: rows, error } = await supabase.from(Tables.PhotoGallery).select("*").order("created_at", { ascending: false });
+    if (error) {
+      console.error("Failed to fetch galleries:", error);
+      setData([]);
+    } else {
+      setData((rows || []).map((r: any, idx: number) => ({
+        id: String(r.id ?? idx),
+        galleryId: r.gallery_id ?? r.id ?? "",
+        cover: Array.isArray(r.images) && r.images.length > 0 ? r.images[0] : "",
+        title: r.title ?? "",
+        eventDate: r.event_date ?? "",
+        photosCount: Array.isArray(r.images) ? r.images.length : 0,
+        status: r.status ?? "Posted",
+        visibility: !!r.visibility,
+      })) as Photo[]);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const filteredData = data.filter((item) => item.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const totalCount = filteredData.length;
-  const paginatedData = filteredData.slice(
-    (page - 1) * rowsPerPage,
-    page * rowsPerPage
-  );
+  const paginatedData = filteredData.slice((page - 1) * rowsPerPage, page * rowsPerPage);
 
   const handleRowSelect = (id: string | number, selected: boolean) => {
-    setSelectedRows((prev) =>
-      selected ? [...prev, id] : prev.filter((r) => r !== id)
-    );
+    setSelectedRows((prev) => (selected ? [...prev, id] : prev.filter((r) => r !== id)));
   };
 
   const handleSelectAll = (selected: boolean) => {
@@ -71,7 +62,9 @@ export default function PhotoGalleryPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-        <FilterBar onSearch={setSearchQuery} />
+        <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} />
+
+        <AddGalleryDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} onSuccess={fetchData} />
 
         <DataTable
           columns={columns}
@@ -79,6 +72,7 @@ export default function PhotoGalleryPage() {
           totalRecords={totalCount}
           page={page}
           rowsPerPage={rowsPerPage}
+          isLoading={loading}
           selectedRows={selectedRows}
           onRowSelect={handleRowSelect}
           onSelectAll={handleSelectAll}
