@@ -8,8 +8,9 @@ import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
+import { loginFormSchema } from "@/lib/yup/schema.validation";
+import * as yup from "yup";
 
 type LoginFormData = yup.InferType<typeof loginFormSchema>;
 

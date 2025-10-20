@@ -5,8 +5,9 @@ import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface FileUploadProps {
-  onFileSelect: (file: File) => void;
-  file?: File;
+  onFileSelect: (file: File | File[]) => void;
+  file?: File | File[];
+  multiple?: boolean;
   error?: string;
   accept?: string; // e.g. "application/pdf,image/*"
   disabled?: boolean;
@@ -17,8 +18,9 @@ interface FileUploadProps {
 export default function FileUpload({
   onFileSelect,
   file,
+  multiple = false,
   error,
-  accept = "application/pdf",
+  accept = "application/pdf, image/*",
   disabled = false,
   maxSize = 10 * 1024 * 1024, // default 10 MB
   label = "Upload a file or drag and drop",
@@ -34,16 +36,30 @@ export default function FileUpload({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile && validateFile(selectedFile)) onFileSelect(selectedFile);
+    const fileList = e.target.files;
+    if (!fileList) return;
+    if (fileList.length === 1) {
+      const selectedFile = fileList[0];
+      if (validateFile(selectedFile)) onFileSelect(selectedFile);
+    } else if (fileList.length > 1) {
+      const arr = Array.from(fileList).filter(validateFile);
+      if (arr.length) onFileSelect(arr);
+    }
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (disabled) return;
 
-    const droppedFile = e.dataTransfer.files?.[0];
-    if (droppedFile && validateFile(droppedFile)) onFileSelect(droppedFile);
+    const droppedFiles = Array.from(e.dataTransfer.files || []);
+    if (!droppedFiles.length) return;
+    if (droppedFiles.length === 1) {
+      const f = droppedFiles[0];
+      if (validateFile(f)) onFileSelect(f);
+    } else {
+      const arr = droppedFiles.filter(validateFile);
+      if (arr.length) onFileSelect(arr);
+    }
   };
 
   return (
@@ -59,12 +75,11 @@ export default function FileUpload({
         onClick={() => !disabled && fileInputRef.current?.click()}
       >
         <Upload className="h-10 w-10 text-gray-500 mb-3" />
-        {!file ? (
+        {!file || (Array.isArray(file) && file.length === 0) ? (
           <>
             <p className="text-gray-700 font-medium">{label}</p>
             <p className="text-sm text-gray-500 mt-1">
-              {accept.includes("pdf") ? "PDF up to" : "Max"}{" "}
-              {Math.round(maxSize / (1024 * 1024))} MB
+              {accept.includes("pdf") ? "PDF up to" : "Max"} {Math.round(maxSize / (1024 * 1024))} MB
             </p>
             <Button
               variant="link"
@@ -77,7 +92,15 @@ export default function FileUpload({
             </Button>
           </>
         ) : (
-          <p className="text-gray-800 font-medium mt-2">{file.name}</p>
+          Array.isArray(file) ? (
+            <div className="space-y-1">
+              {file.map((f, i) => (
+                <p key={i} className="text-gray-800 font-medium mt-2">{f.name}</p>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-800 font-medium mt-2">{file.name}</p>
+          )
         )}
 
         <input
@@ -86,6 +109,7 @@ export default function FileUpload({
           accept={accept}
           hidden
           disabled={disabled}
+          multiple={multiple}
           onChange={handleFileChange}
         />
       </div>

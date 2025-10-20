@@ -1,50 +1,56 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { columns, Update } from "./components/columns";
 import { DataTable } from "@/components/ui/data-table";
 import FilterBar from "./components/FilterBar";
-
-const mockData: Update[] = [
-  {
-    id: "1",
-    postId: "00596",
-    title: "Class XI Admission Form 2025-26",
-    createdDate: "11/02/25 04:44 PM",
-    status: "New",
-    attachment: "PDF",
-    visibility: true,
-    updatedDate: "11/02/25 04:44 PM",
-  },
-  {
-    id: "2",
-    postId: "00597",
-    title: "XI Admission Form 2025-26 (Updated)",
-    createdDate: "12/02/25 09:12 AM",
-    status: "Posted",
-    attachment: "PDF",
-    visibility: true,
-    updatedDate: "12/02/25 09:12 AM",
-  },
-  {
-    id: "3",
-    postId: "00598",
-    title: "Class XI Admission Form 2025-26",
-    createdDate: "13/02/25 10:15 AM",
-    status: "Deleted",
-    attachment: "PDF",
-    visibility: false,
-    updatedDate: "13/02/25 10:15 AM",
-  },
-];
+import AddUpdateDialog from "./components/AddUpdateDialog";
+import { supabase } from "@/supabase/client";
+import Tables from "@/lib/tables";
 
 export default function LatestUpdatesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedRows, setSelectedRows] = useState<(string | number)[]>([]);
+  const [data, setData] = useState<Update[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const filteredData = mockData.filter((item) =>
+  const fetchData = async () => {
+    setLoading(true);
+    const { data: rows, error } = await supabase
+      .from(Tables.LatestUpdates)
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Failed to fetch updates:", error);
+      setData([]);
+    } else {
+      // Map DB rows to Update type expected by table (add id if missing)
+      setData(
+        (rows || []).map((r: any, idx: number) => ({
+          id: String(r.id ?? idx),
+          postId: r.post_id ?? r.id ?? "",
+          title: r.title ?? "",
+          createdDate: r.created_at ?? "",
+          status: (r.status as any) ?? "Posted",
+          attachment: r.file_url ?? r.attachment ?? "",
+          visibility: !!r.visibility,
+          updatedDate: r.updated_at ?? r.created_at ?? "",
+        }))
+      );
+    }
+
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const filteredData = data.filter((item) =>
     item.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -71,7 +77,9 @@ export default function LatestUpdatesPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-        <FilterBar onSearch={setSearchQuery} />
+        <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} />
+
+        <AddUpdateDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} onSuccess={fetchData} />
 
         <DataTable
           columns={columns}
@@ -79,6 +87,7 @@ export default function LatestUpdatesPage() {
           totalRecords={totalCount}
           page={page}
           rowsPerPage={rowsPerPage}
+          isLoading={loading}
           selectedRows={selectedRows}
           onRowSelect={handleRowSelect}
           onSelectAll={handleSelectAll}

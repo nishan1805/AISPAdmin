@@ -3,14 +3,13 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,15 +17,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import FileUpload from "@/components/shared/FileUpload"; 
-type FormValues = {
-  title: string;
-  description?: string;
-  file: File;
-};
+import { updateFormSchema } from "@/lib/yup/schema.validation";
+import { supabase } from "@/supabase/client";
+import Tables from "@/lib/tables";
+import * as yup from "yup";
 
-export default function AddUpdateDialog() {
-  const supabase = createClientComponentClient();
-  const [open, setOpen] = useState(false);
+type UpdateFormData = yup.InferType<typeof updateFormSchema>;
+
+
+interface AddUpdateDialogProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onSuccess?: () => void;
+}
+
+export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, onSuccess }: AddUpdateDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = typeof controlledOpen === "boolean" ? controlledOpen : internalOpen;
+  const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => {}) : setInternalOpen;
 
   const {
     register,
@@ -35,18 +43,18 @@ export default function AddUpdateDialog() {
     formState: { errors, isSubmitting },
     reset,
     watch,
-  } = useForm<FormValues>({
-    resolver: yupResolver(updateFormschema),
+  } = useForm<UpdateFormData>({
+    resolver: yupResolver(updateFormSchema),
   });
 
   const file = watch("file");
 
-  const onSubmit = async (data: FormValues) => {
+  const onSubmit = async (data: UpdateFormData) => {
     try {
-      const filePath = `uploads/${Date.now()}_${data.file.name}`;
+      const filePath = `latest-update/${Date.now()}_${data.file.name}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("pdfs")
+        .from("AISPPUR")
         .upload(filePath, data.file);
 
       if (uploadError) throw uploadError;
@@ -54,22 +62,23 @@ export default function AddUpdateDialog() {
       // ✅ Get public URL
       const {
         data: { publicUrl },
-      } = supabase.storage.from("pdfs").getPublicUrl(filePath);
+      } = supabase.storage.from("AISPPUR").getPublicUrl(filePath);
 
       // ✅ Insert record into database
-      const { error: insertError } = await supabase.from("updates").insert([
+      const { error: insertError } = await supabase.from(Tables.LatestUpdates).insert([
         {
           title: data.title,
           description: data.description,
-          file_url: publicUrl,
+          image: publicUrl,
         },
       ]);
 
       if (insertError) throw insertError;
 
-      toast.success("Update published successfully!");
-      reset();
-      setOpen(false);
+  toast.success("Update published successfully!");
+  reset();
+  setOpen(false);
+  if (onSuccess) onSuccess();
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
     }
@@ -77,9 +86,6 @@ export default function AddUpdateDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>Add Update</Button>
-      </DialogTrigger>
 
       <DialogContent className="sm:max-w-lg p-6">
         <DialogHeader>
@@ -122,9 +128,12 @@ export default function AddUpdateDialog() {
           <FileUpload
             label="Upload a file or drag and drop"
             file={file}
-            onFileSelect={(selectedFile) => setValue("file", selectedFile, { shouldValidate: true })}
+            onFileSelect={(selectedFile) => {
+              const f = Array.isArray(selectedFile) ? selectedFile[0] : selectedFile;
+              if (f) setValue("file", f, { shouldValidate: true });
+            }}
             error={errors.file?.message}
-            accept="application/pdf"
+            accept="application/pdf, image/*"
             maxSize={10 * 1024 * 1024}
             disabled={isSubmitting}
           />
