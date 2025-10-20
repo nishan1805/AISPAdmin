@@ -45,7 +45,6 @@ export default function AddUpdateDialog() {
     try {
       const filePath = `uploads/${Date.now()}_${data.file.name}`;
 
-      // ✅ Upload file to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("pdfs")
         .upload(filePath, data.file);
