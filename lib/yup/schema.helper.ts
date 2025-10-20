@@ -53,4 +53,3 @@ export const fileValidation = (
 export const pdfOrImageValidation = (maxSizeMB: number = 10) =>
   fileValidation(maxSizeMB, ["application/pdf", "image/jpeg", "image/png", "image/webp"]);
 
-
