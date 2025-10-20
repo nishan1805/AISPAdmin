@@ -18,7 +18,7 @@ export default function FileUpload({
   onFileSelect,
   file,
   error,
-  accept = "application/pdf",
+  accept = "application/pdf, image/*",
   disabled = false,
   maxSize = 10 * 1024 * 1024, // default 10 MB
   label = "Upload a file or drag and drop",
