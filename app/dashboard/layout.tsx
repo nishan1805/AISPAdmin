@@ -10,9 +10,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
+    // if (!loading && !user) {
+    //   router.push('/login');
+    // }
   }, [user, loading, router]);
 
   if (loading) {
@@ -23,9 +23,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) {
-    return null;
-  }
+  // if (!user) {
+  //   return null;
+  // }
 
   return <DashboardLayout>{children}</DashboardLayout>;
 }

@@ -43,15 +43,15 @@ export default function LoginPage() {
   });
 
   useEffect(() => {
-    const remember = localStorage.getItem("rememberMe");
-    const storedEmail = localStorage.getItem("rememberedEmail");
-    const storedPassword = localStorage.getItem("rememberedPassword");
+    // const remember = localStorage.getItem("rememberMe");
+    // const storedEmail = localStorage.getItem("rememberedEmail");
+    // const storedPassword = localStorage.getItem("rememberedPassword");
 
-    if (remember === "true" && storedEmail && storedPassword) {
-      setValue("email", storedEmail);
-      setValue("password", storedPassword);
-      // setValue("rememberMe", true);
-    }
+    // if (remember === "true" && storedEmail && storedPassword) {
+    //   setValue("email", storedEmail);
+    //   setValue("password", storedPassword);
+    //   setValue("rememberMe", true);
+    // }
   }, [setValue]);
 
   const onSubmit = async (data: LoginFormData) => {

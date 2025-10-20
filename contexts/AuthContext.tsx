@@ -23,7 +23,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: { user } } = await supabase.auth.getUser();
         setUser(user ?? null);
       } catch (err) {
-        // If anything goes wrong, ensure user is null and surface nothing to UI
         setUser(null);
       } finally {
         setLoading(false);
