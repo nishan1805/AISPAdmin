@@ -75,7 +75,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center mb-8 text-center">
           <div className="w-20 h-20 mb-4">
             <img
-              src="https://images.pexels.com/photos/207662/pexels-photo-207662.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop"
+              src="/aispur_logo.png"
               alt="School Logo"
               className="w-full h-full rounded-full object-cover"
             />

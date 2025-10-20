@@ -29,7 +29,7 @@ export function Sidebar() {
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10">
             <img
-              src="https://images.pexels.com/photos/207662/pexels-photo-207662.jpeg?auto=compress&cs=tinysrgb&w=40&h=40&fit=crop"
+              src="/aispur_logo.png"
               alt="Logo"
               className="w-full h-full rounded-full object-cover"
             />
