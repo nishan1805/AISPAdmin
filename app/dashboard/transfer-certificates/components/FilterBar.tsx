@@ -26,7 +26,7 @@ export default function FilterBar({ onSearch, onAdd }: FilterBarProps) {
           }}
         >
           <Plus size={18} className="mr-2" />
-          Add New
+          Upload TC
         </Button>
 
         <DropdownMenu>
