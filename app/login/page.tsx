@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
-import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,13 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 
-const schema = yup.object({
-  email: yup.string().email("Invalid email format").required("Email is required"),
-  password: yup.string().required("Password is required")
-  // rememberMe: yup.boolean().default(false),
-});
-
-type LoginFormData = yup.InferType<typeof schema>;
+type LoginFormData = yup.InferType<typeof loginFormSchema>;
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -34,7 +27,7 @@ export default function LoginPage() {
     setValue,
     formState: { errors },
   } = useForm<LoginFormData>({
-    resolver: yupResolver(schema),
+    resolver: yupResolver(loginFormSchema),
     defaultValues: {
       email: "",
       password: "",
