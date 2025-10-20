@@ -7,6 +7,7 @@ import FilterBar from "./components/FilterBar";
 
 const mockData: Update[] = [
   {
+    id: "1",
     postId: "00596",
     title: "Class XI Admission Form 2025-26",
     createdDate: "11/02/25 04:44 PM",
@@ -16,6 +17,7 @@ const mockData: Update[] = [
     updatedDate: "11/02/25 04:44 PM",
   },
   {
+    id: "2",
     postId: "00597",
     title: "XI Admission Form 2025-26 (Updated)",
     createdDate: "12/02/25 09:12 AM",
@@ -25,6 +27,7 @@ const mockData: Update[] = [
     updatedDate: "12/02/25 09:12 AM",
   },
   {
+    id: "3",
     postId: "00598",
     title: "Class XI Admission Form 2025-26",
     createdDate: "13/02/25 10:15 AM",
@@ -37,15 +40,29 @@ const mockData: Update[] = [
 
 export default function LatestUpdatesPage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [data, setData] = useState([]);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [totalCount, setTotalCount] = useState(0);
-
+  const [selectedRows, setSelectedRows] = useState<(string | number)[]>([]);
 
   const filteredData = mockData.filter((item) =>
     item.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const totalCount = filteredData.length;
+  const paginatedData = filteredData.slice(
+    (page - 1) * rowsPerPage,
+    page * rowsPerPage
+  );
+
+  const handleRowSelect = (id: string | number, selected: boolean) => {
+    setSelectedRows((prev) =>
+      selected ? [...prev, id] : prev.filter((r) => r !== id)
+    );
+  };
+
+  const handleSelectAll = (selected: boolean) => {
+    setSelectedRows(selected ? paginatedData.map((row) => row.id) : []);
+  };
 
   return (
     <div className="p-8">
@@ -55,18 +72,22 @@ export default function LatestUpdatesPage() {
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
         <FilterBar onSearch={setSearchQuery} />
-       <DataTable
-      columns={columns}
-      data={mockData}
-      totalCount={totalCount}
-      page={page}
-      rowsPerPage={rowsPerPage}
-      onPageChange={setPage}
-      onRowsPerPageChange={(newLimit) => {
-        setRowsPerPage(newLimit);
-        setPage(1);
-      }}
-    />
+
+        <DataTable
+          columns={columns}
+          data={paginatedData}
+          totalRecords={totalCount}
+          page={page}
+          rowsPerPage={rowsPerPage}
+          selectedRows={selectedRows}
+          onRowSelect={handleRowSelect}
+          onSelectAll={handleSelectAll}
+          onPageChange={setPage}
+          onRowsPerPageChange={(limit) => {
+            setRowsPerPage(limit);
+            setPage(1);
+          }}
+        />
       </div>
     </div>
   );

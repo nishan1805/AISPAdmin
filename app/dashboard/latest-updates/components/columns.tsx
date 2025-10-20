@@ -1,7 +1,5 @@
 "use client";
 
-import { ColumnDef } from "@tanstack/react-table";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { FileText, MoreVertical } from "lucide-react";
@@ -14,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export type Update = {
+  id: string; // 👈 Added ID for selection
   postId: string;
   title: string;
   createdDate: string;
@@ -23,85 +22,60 @@ export type Update = {
   updatedDate: string;
 };
 
-export const columns: ColumnDef<Update>[] = [
+export const columns = [
   {
-    id: "select",
-    header: ({ table }) => (
-      <Checkbox
-        checked={table.getIsAllPageRowsSelected()}
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-      />
-    ),
-    enableSorting: false,
-    enableHiding: false,
+    key: "select",
+    label: "",
   },
   {
-    accessorKey: "postId",
-    header: "Post ID",
-    cell: ({ row }) => <div className="font-medium">{row.getValue("postId")}</div>,
+    key: "postId",
+    label: "Post ID",
   },
   {
-    accessorKey: "title",
-    header: "Title",
-    cell: ({ row }) => (
-      <div className="max-w-md truncate" title={row.getValue("title")}>
-        {row.getValue("title")}
-      </div>
-    ),
+    key: "title",
+    label: "Title",
   },
   {
-    accessorKey: "createdDate",
-    header: "Created Date & Time",
+    key: "createdDate",
+    label: "Created Date & Time",
   },
   {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => {
-      const status = row.getValue("status") as Update["status"];
+    key: "status",
+    label: "Status",
+    render: (row: Update) => {
+      const status = row.status;
       const badgeClass =
         status === "New"
           ? "bg-green-100 text-green-700 hover:bg-green-100"
           : status === "Posted"
           ? "bg-blue-100 text-blue-700 hover:bg-blue-100"
           : "bg-red-100 text-red-700 hover:bg-red-100";
-      return (
-        <Badge className={badgeClass}>
-          {status}
-        </Badge>
-      );
+      return <Badge className={badgeClass}>{status}</Badge>;
     },
   },
   {
-    accessorKey: "attachment",
-    header: "Attachment",
-    cell: ({ row }) => (
+    key: "attachment",
+    label: "Attachment",
+    render: (row: Update) => (
       <div className="flex items-center text-slate-600">
         <FileText size={16} className="mr-1" />
-        {row.getValue("attachment")}
+        {row.attachment}
       </div>
     ),
   },
   {
-    accessorKey: "visibility",
-    header: "Visibility",
-    cell: ({ row }) => (
-      <Switch checked={row.getValue("visibility") as boolean} />
-    ),
+    key: "visibility",
+    label: "Visibility",
+    render: (row: Update) => <Switch checked={row.visibility} />,
   },
   {
-    accessorKey: "updatedDate",
-    header: "Updated Date & Time",
+    key: "updatedDate",
+    label: "Updated Date & Time",
   },
   {
-    id: "actions",
-    header: "",
-    cell: () => (
+    key: "actions",
+    label: "",
+    render: () => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon">

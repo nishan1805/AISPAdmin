@@ -1,11 +1,12 @@
+"use client";
+
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Skeleton } from "../ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Button } from "../ui/button";
-
+import { Checkbox } from "../ui/checkbox";
 
 interface Column<T> {
   key: keyof T | string;
@@ -15,157 +16,172 @@ interface Column<T> {
 }
 
 interface DataTableProps<T> {
-  title: string;
   columns: Column<T>[];
   data: T[];
   totalRecords: number;
-  currentPage: number;
-  pageSize: number;
+  page: number;
+  rowsPerPage: number;
   isLoading?: boolean;
+  selectedRows: (string | number)[];
+  onRowSelect: (id: string | number, selected: boolean) => void;
+  onSelectAll: (selected: boolean) => void;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
+  onRowsPerPageChange: (size: number) => void;
   pageOptions?: number[];
 }
 
-export function DataTable<T extends { id?: string | number }>({
-  title,
+export function DataTable<T extends { id: string | number }>({
   columns,
   data,
   totalRecords,
-  currentPage,
-  pageSize,
+  page,
+  rowsPerPage,
   isLoading = false,
+  selectedRows,
+  onRowSelect,
+  onSelectAll,
   onPageChange,
-  onPageSizeChange,
+  onRowsPerPageChange,
   pageOptions = [5, 10, 20, 50, 100],
 }: DataTableProps<T>) {
-  const totalPages = Math.ceil(totalRecords / pageSize);
+  const totalPages = Math.ceil(totalRecords / rowsPerPage);
+  const allSelected = data.length > 0 && data.every((row) => selectedRows.includes(row.id));
 
   return (
     <>
-        <div className="w-full overflow-x-auto">
-          <Table className="min-w-full w-max">
-            <TableHeader className="bg-blue-50">
-              <TableRow>
-                {columns.map((col) => (
-                  <TableHead key={col.key as string} className={col.className}>
-                    {col.label}
+      <div className="w-full overflow-x-auto">
+        <Table className="min-w-full w-max">
+          <TableHeader className="bg-blue-50">
+            <TableRow>
+              {columns.map((col) =>
+                col.key === "select" ? (
+                  <TableHead key="select" className="w-[40px]">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={(value) => onSelectAll(!!value)}
+                    />
                   </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                [...Array(pageSize)].map((_, i) => (
-                  <TableRow key={i}>
-                    {columns?.map((_, idx) => (
-                      <TableCell key={idx}>
-                        <Skeleton className="h-4 w-full" />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : data?.length > 0 ? (
-                data.map((row, index) => (
-                  <TableRow key={row.id || index}>
-                    {columns.map((col) => (
-                      <TableCell
-                        key={col.key as string}
-                        className={col.className}
-                      >
-                        {col.render
-                          ? col.render(row, index)
-                          : (row[col.key as keyof T] as React.ReactNode)}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="text-center">
-                    No records found
-                  </TableCell>
-                </TableRow>
+                ) : (
+                  <TableHead key={col.key as string}>{col.label}</TableHead>
+                )
               )}
-            </TableBody>
-          </Table>
-        </div>
+            </TableRow>
+          </TableHeader>
 
-        {/* Pagination Controls */}
-        <div className="flex flex-wrap justify-between items-center mt-4 gap-4">
-          <div className="flex flex-wrap justify-between items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm">Total:</span>
-            <span className="text-sm">{totalRecords}</span>
-          </div>
-          {/* Items per page */}
+          <TableBody>
+            {isLoading ? (
+              [...Array(rowsPerPage)].map((_, i) => (
+                <TableRow key={i}>
+                  {columns.map((_, idx) => (
+                    <TableCell key={idx}>
+                      <Skeleton className="h-4 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : data?.length > 0 ? (
+              data.map((row, index) => (
+                <TableRow
+                  key={row.id}
+                  className={`cursor-pointer hover:bg-blue-50 ${
+                    selectedRows.includes(row.id) ? "bg-blue-50" : ""
+                  }`}
+                  onClick={() => onRowSelect(row.id, !selectedRows.includes(row.id))}
+                >
+                  {columns.map((col) => (
+                    <TableCell key={col.key as string}>
+                      {col.key === "select" ? (
+                        <Checkbox
+                          checked={selectedRows.includes(row.id)}
+                          onCheckedChange={(value) =>
+                            onRowSelect(row.id, !!value)
+                          }
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : col.render ? (
+                        col.render(row, index)
+                      ) : (
+                        (row[col.key as keyof T] as React.ReactNode)
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="text-center">
+                  No records found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex flex-wrap justify-between items-center mt-4 gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <span className="text-sm">Total: {totalRecords}</span>
           <div className="flex items-center gap-2">
             <Select
-              value={String(pageSize)}
-              onValueChange={(value) => onPageSizeChange(Number(value))}
+              value={String(rowsPerPage)}
+              onValueChange={(value) => onRowsPerPageChange(Number(value))}
               disabled={totalRecords === 0}
             >
               <SelectTrigger className="w-[80px]">
-                <SelectValue placeholder="Select" />
+                <SelectValue placeholder="Rows" />
               </SelectTrigger>
               <SelectContent>
-                {pageOptions?.map((size: number) => (
+                {pageOptions.map((size) => (
                   <SelectItem key={size} value={String(size)}>
                     {size}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-
-            <span className="text-sm">items per page</span>
-          </div>
-          </div>
-
-          {/* Page Info + Navigation */}
-          <div className="flex items-center gap-2">
-            <Select
-              value={String(currentPage)}
-              onValueChange={(value) => onPageChange(Number(value))}
-              disabled={totalPages === 0}
-            >
-              <SelectTrigger className="w-[80px]">
-                <SelectValue placeholder="Page" />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                  (page) => (
-                    <SelectItem key={page} value={String(page)}>
-                      {page}
-                    </SelectItem>
-                  )
-                )}
-              </SelectContent>
-            </Select>
-            <span className="text-sm">of {totalPages} pages</span>
-
-            <Button
-              onClick={() => onPageChange(currentPage - 1)}
-              disabled={currentPage === 1 || totalPages === 0}
-              size="icon"
-              variant="outline"
-              className="hover:bg-primary hover:text-white transition-colors duration-300 ease-in-out"
-            >
-              <ChevronLeft />
-            </Button>
-
-            <Button
-              onClick={() => onPageChange(currentPage + 1)}
-              disabled={currentPage === totalPages || totalPages === 0}
-              size="icon"
-              variant="outline"
-              className="hover:bg-primary hover:text-white transition-colors duration-300 ease-in-out"
-            >
-              <ChevronRight />
-            </Button>
+            <span className="text-sm">rows per page</span>
           </div>
         </div>
+
+        {/* Page Navigation */}
+        <div className="flex items-center gap-2">
+          <Select
+            value={String(page)}
+            onValueChange={(value) => onPageChange(Number(value))}
+            disabled={totalPages === 0}
+          >
+            <SelectTrigger className="w-[80px]">
+              <SelectValue placeholder="Page" />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: totalPages }, (_, i) => (
+                <SelectItem key={i + 1} value={String(i + 1)}>
+                  {i + 1}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-sm">of {totalPages}</span>
+
+          <Button
+            onClick={() => onPageChange(page - 1)}
+            disabled={page === 1}
+            size="icon"
+            variant="outline"
+          >
+            <ChevronLeft />
+          </Button>
+
+          <Button
+            onClick={() => onPageChange(page + 1)}
+            disabled={page === totalPages}
+            size="icon"
+            variant="outline"
+          >
+            <ChevronRight />
+          </Button>
+        </div>
+      </div>
     </>
   );
 }
-
-export default DataTable;
