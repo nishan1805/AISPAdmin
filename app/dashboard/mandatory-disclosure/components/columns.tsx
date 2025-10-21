@@ -91,6 +91,8 @@ export const getColumns = (
       <Switch
         checked={row.visibility}
         onCheckedChange={(checked) => onToggleVisibility(row.id, checked)}
+        className={`${row.visibility ? "data-[state=checked]:bg-green-600" : "data-[state=unchecked]:bg-gray-300"
+            }`}
       />
     ),
   },

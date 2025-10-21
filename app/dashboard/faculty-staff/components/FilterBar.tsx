@@ -37,7 +37,7 @@ export default function FilterBar({ onSearch, onAdd, onDeleteSelected }: FilterB
           <DropdownMenuContent>
             <DropdownMenuItem
               onClick={() => {
-                if (typeof (onDeleteSelected as any) === "function") onDeleteSelected!();
+                if (typeof onDeleteSelected === "function") onDeleteSelected();
               }}
             >
               Delete Selected

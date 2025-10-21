@@ -66,7 +66,7 @@ export default function AddDisclosureDialog({
     context: { isEdit: !!initialData?.id },
   });
 
-  const file = watch("file");
+  const file = watch("file") as File | File[] | undefined | null;
   const [existingFileUrl, setExistingFileUrl] = useState<string | null>(null);
   const [removeExistingFile, setRemoveExistingFile] = useState(false);
 

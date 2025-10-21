@@ -30,7 +30,6 @@ interface AddUpdateDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
-  // initialData allows the dialog to be used for editing an existing update
   initialData?: {
     id?: string | number;
     title?: string;
@@ -251,7 +250,6 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
               type="submit"
               disabled={isSubmitting}
               onClick={() => {
-                // fallback: trigger RHF submit in case native submit isn't firing for any reason
                 handleSubmit(onSubmit)();
               }}
             >

@@ -61,3 +61,21 @@ export const disclosureSchema = yup.object({
     }
   }),
 });
+
+export const staffSchema = yup.object({
+  name: yup.string().required("Name is required"),
+  designation: yup.string().required("Designation is required"),
+  category: yup.string().required("Category is required"),
+  file: yup.mixed().test("file-required-if-create", function (value) {
+    const isEdit = !!(this?.options as any)?.context?.isEdit;
+    if (isEdit) return true; // optional in edit mode
+    // create mode: validate via pdfFileValidation
+    const validator = imageFileValidation(10); // 10MB max, for example
+    try {
+      validator.validateSync(value);
+      return true;
+    } catch (e: any) {
+      return this.createError({ message: e?.message || "A valid file is required" });
+    }
+  }),
+});
