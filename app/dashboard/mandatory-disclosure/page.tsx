@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { supabase } from "@/supabase/client";
+import Tables from "@/lib/tables";
 import { DataTable } from "@/components/ui/data-table";
 import FilterBar from "./components/FilterBar";
 import AddDisclosureDialog from "./components/AddDisclosureDialog";
-import { supabase } from "@/supabase/client";
-import Tables from "@/lib/tables";
-import { columns, Disclosure } from "./components/columns";
+import ConfirmActionDialog from "@/components/shared/ConfirmActionDialog";
+import { Disclosure, getColumns } from "./components/columns";
 
 export default function MandatoryDisclosurePage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -16,25 +18,41 @@ export default function MandatoryDisclosurePage() {
   const [data, setData] = useState<Disclosure[]>([]);
   const [loading, setLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<any | null>(null);
+
+  const [visibilityDialogOpen, setVisibilityDialogOpen] = useState(false);
+  const [visibilityTarget, setVisibilityTarget] = useState<{ id: string; value: boolean } | null>(null);
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: rows, error } = await supabase.from(Tables.MandatoryDisclosure).select("*").order("created_at", { ascending: false });
+    const { data: rows, error } = await supabase
+      .from(Tables.MandatoryDisclosure)
+      .select("*")
+      .order("created_at", { ascending: false });
+
     if (error) {
       console.error("Failed to fetch disclosures:", error);
+      toast.error("Failed to fetch disclosures");
       setData([]);
     } else {
-      setData((rows || []).map((r: any, idx: number) => ({
-        id: String(r.id ?? idx),
-        docId: r.doc_id ?? r.id ?? "",
-        title: r.title ?? "",
-        attachment: r.attachment ?? "",
-        createdAt: r.created_at ?? "",
-        photosCount: 0,
-        status: r.status ?? "Posted",
-        visibility: !!r.visibility,
-      })) as Disclosure[]);
+      setData(
+        (rows || []).map((r: any, idx: number) => ({
+          id: String(r.id ?? idx),
+          docId: r.doc_id ?? r.id ?? "",
+          title: r.title ?? "",
+          description: r.description ?? "",
+          attachment: r.file_url ?? r.attachment ?? "",
+          createdAt: r.created_at ?? "",
+          updatedAt: r.updated_at ?? "",
+          visibility: !!r.visibility,
+          status: r.status ?? "Posted",
+        })) as Disclosure[]
+      );
     }
+
     setLoading(false);
   };
 
@@ -42,50 +60,211 @@ export default function MandatoryDisclosurePage() {
     fetchData();
   }, []);
 
-  const filteredData = data.filter((item) => item.title.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredData = data.filter((item) =>
+    item.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const totalCount = filteredData.length;
-  const paginatedData = filteredData.slice((page - 1) * rowsPerPage, page * rowsPerPage);
+  const paginatedData = filteredData.slice(
+    (page - 1) * rowsPerPage,
+    page * rowsPerPage
+  );
 
   const handleRowSelect = (id: string | number, selected: boolean) => {
-    setSelectedRows((prev) => (selected ? [...prev, id] : prev.filter((r) => r !== id)));
+    setSelectedRows((prev) =>
+      selected ? [...prev, id] : prev.filter((r) => r !== id)
+    );
   };
 
   const handleSelectAll = (selected: boolean) => {
     setSelectedRows(selected ? paginatedData.map((row) => row.id) : []);
   };
 
-  const deleteSelected = async () => {
-    if (!selectedRows || selectedRows.length === 0) return;
+  // ---------- Visibility Handling ----------
+  const handleToggleVisibility = (id: string, value: boolean) => {
+    setVisibilityTarget({ id, value });
+    setVisibilityDialogOpen(true);
+  };
+
+  const confirmToggleVisibility = async () => {
+    if (!visibilityTarget) return;
+    const { id, value } = visibilityTarget;
 
     try {
-      const ids = selectedRows.map((id) => (typeof id === "string" ? id : String(id)));
-      const { error } = await supabase.from(Tables.MandatoryDisclosure).delete().in("id", ids);
+      const { error } = await supabase
+        .from(Tables.MandatoryDisclosure)
+        .update({ visibility: value })
+        .eq("id", id);
+
       if (error) {
-        console.error("Failed to delete selected disclosures:", error);
+        console.error("Failed to update visibility:", error);
+        toast.error("Failed to update visibility");
         return;
       }
 
+      toast.success(value ? "Item will be visible" : "Item will be hidden");
+      setVisibilityDialogOpen(false);
+      setVisibilityTarget(null);
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update visibility");
+    }
+  };
+
+  // ---------- Delete Handling ----------
+  const handleDelete = (id: string) => {
+    setDeleteTargetId(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTargetId) return;
+
+    try {
+      const { error } = await supabase
+        .from(Tables.MandatoryDisclosure)
+        .delete()
+        .eq("id", deleteTargetId);
+
+      if (error) {
+        console.error("Failed to delete disclosure:", error);
+        toast.error("Failed to delete disclosure");
+        return;
+      }
+
+      toast.success("Disclosure deleted");
+      setDeleteDialogOpen(false);
+      setDeleteTargetId(null);
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete disclosure");
+    }
+  };
+
+  const deleteSelected = async () => {
+    if (!selectedRows.length) {
+      toast.error("No rows selected");
+      return;
+    }
+
+    try {
+      const ids = selectedRows.map((id) => String(id));
+      const { error } = await supabase
+        .from(Tables.MandatoryDisclosure)
+        .delete()
+        .in("id", ids);
+
+      if (error) {
+        console.error("Failed to delete selected disclosures:", error);
+        toast.error("Failed to delete selected disclosures");
+        return;
+      }
+
+      toast.success("Selected disclosures deleted");
       setSelectedRows([]);
       await fetchData();
     } catch (err) {
       console.error(err);
+      toast.error("Failed to delete selected disclosures");
     }
   };
 
+  // ---------- Edit Handling ----------
+  const handleEdit = (row: Disclosure) => {
+    (async () => {
+      try {
+        const { data: full, error } = await supabase
+          .from(Tables.MandatoryDisclosure)
+          .select("*")
+          .eq("id", row.id)
+          .single();
+
+        if (error) {
+          console.error("Failed to fetch record for edit:", error);
+          setEditTarget(row);
+          setIsDialogOpen(true);
+          return;
+        }
+
+        const initial = {
+          id: full.id,
+          title: full.title ?? row.title,
+          description: full.description ?? "",
+          fileUrl:
+            full.file ??
+            full.file_url ??
+            full.attachment ??
+            row.attachment ??
+            "",
+        };
+
+        setEditTarget(initial);
+        setIsDialogOpen(true);
+      } catch (err) {
+        console.error(err);
+        setEditTarget(row);
+        setIsDialogOpen(true);
+      }
+    })();
+  };
+
+  // ---------- UI ----------
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-800">Mandatory Disclosure</h1>
+        <h1 className="text-3xl font-bold text-slate-800">
+          Mandatory Disclosure
+        </h1>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-  <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} onDeleteSelected={deleteSelected} />
+        <FilterBar
+          onSearch={setSearchQuery}
+          onAdd={() => setIsDialogOpen(true)}
+          onDeleteSelected={deleteSelected}
+        />
 
-        <AddDisclosureDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} onSuccess={fetchData} />
+        <AddDisclosureDialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) setEditTarget(null);
+          }}
+          onSuccess={fetchData}
+          initialData={editTarget}
+        />
+
+        <ConfirmActionDialog
+          open={visibilityDialogOpen}
+          onOpenChange={setVisibilityDialogOpen}
+          title={
+            visibilityTarget?.value
+              ? "Show this item on the website?"
+              : "Hide this item from the website?"
+          }
+          description={
+            visibilityTarget?.value
+              ? "Make this item visible on the website"
+              : "Users will no longer see it"
+          }
+          confirmLabel={visibilityTarget?.value ? "Show" : "Hide"}
+          variant={visibilityTarget?.value ? "success" : "danger"}
+          onConfirm={confirmToggleVisibility}
+        />
+
+        <ConfirmActionDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          title="Do you want to delete this item?"
+          description="This action cannot be undone"
+          confirmLabel="Delete"
+          onConfirm={confirmDelete}
+        />
 
         <DataTable
-          columns={columns}
+          columns={getColumns(handleToggleVisibility, handleDelete, handleEdit)}
           data={paginatedData}
           totalRecords={totalCount}
           page={page}
@@ -104,4 +283,3 @@ export default function MandatoryDisclosurePage() {
     </div>
   );
 }
-

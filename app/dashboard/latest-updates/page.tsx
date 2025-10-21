@@ -244,12 +244,12 @@ export default function LatestUpdatesPage() {
               ? "Hide"
               : "Show"
           }
-          colorClassname={
+          variant={
             confirmActionType === "delete"
-              ? "bg-red-500 hover:bg-red-600"
+              ? "danger"
               : confirmTarget?.value
-              ? "bg-red-500 hover:bg-red-600"
-              : "bg-green-500 hover:bg-green-600"
+              ? "danger"
+              : "success"
           }
           onConfirm={handleConfirmAction}
         />
