@@ -8,8 +8,8 @@ import AddUpdateDialog from "./components/AddUpdateDialog";
 import { supabase } from "@/supabase/client";
 import Tables from "@/lib/tables";
 import { getColumns } from "./components/columns";
-import ConfirmActionDialog from "./components/ConfirmActionDialog";
 import { toast } from "sonner";
+import ConfirmActionDialog from "@/components/shared/ConfirmActionDialog";
 
 export default function LatestUpdatesPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -207,9 +207,10 @@ export default function LatestUpdatesPage() {
         <ConfirmActionDialog
           open={visibilityDialogOpen}
           onOpenChange={setVisibilityDialogOpen}
-          title={visibilityTarget && visibilityTarget.value ? "Hide this item from the website?" : "Show this item on the website?"}
-          description={visibilityTarget && visibilityTarget.value ? "Users will no longer see it" : "Users will see it on the website"}
-          confirmLabel={visibilityTarget && visibilityTarget.value ? "Hide" : "Show"}
+          title={visibilityTarget && visibilityTarget.value ? "Show this item on the website?" : "Hide this item from the website?"}
+          description={visibilityTarget && visibilityTarget.value ? "Make this item visible on the website" : "Users will no longer see it"}
+          confirmLabel={visibilityTarget && visibilityTarget.value ? "Show" : "Hide"}
+          variant={visibilityTarget && visibilityTarget.value ? "success" : "danger"}
           onConfirm={confirmToggleVisibility}
         />
 

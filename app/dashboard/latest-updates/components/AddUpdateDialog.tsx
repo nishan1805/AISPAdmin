@@ -53,6 +53,7 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
     watch,
   } = useForm<UpdateFormData>({
     resolver: yupResolver(updateFormSchema),
+    context: { isEdit: !!initialData?.id },
   });
 
   const file = watch("file") as File | File[] | undefined | null;
