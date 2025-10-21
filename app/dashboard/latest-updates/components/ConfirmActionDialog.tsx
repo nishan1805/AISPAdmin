@@ -12,6 +12,7 @@ interface ConfirmActionDialogProps {
   cancelLabel?: string;
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
+  colorClassname: string;
 }
 
 export default function ConfirmActionDialog({
@@ -22,6 +23,7 @@ export default function ConfirmActionDialog({
   cancelLabel = "Cancel",
   onConfirm,
   onOpenChange,
+  colorClassname = "bg-red-500 hover:bg-red-600"
 }: ConfirmActionDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -33,7 +35,7 @@ export default function ConfirmActionDialog({
         <DialogFooter className="mt-4">
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => onOpenChange(false)}>{cancelLabel}</Button>
-            <Button className="bg-red-500 hover:bg-red-600" onClick={() => { onConfirm(); onOpenChange(false); }}>{confirmLabel}</Button>
+            <Button className={colorClassname} onClick={() => { onConfirm(); onOpenChange(false); }}>{confirmLabel}</Button>
           </div>
         </DialogFooter>
       </DialogContent>

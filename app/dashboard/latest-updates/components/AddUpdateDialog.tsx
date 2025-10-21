@@ -250,7 +250,6 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
               type="submit"
               disabled={isSubmitting}
               onClick={() => {
-                // fallback: trigger RHF submit in case native submit isn't firing for any reason
                 handleSubmit(onSubmit)();
               }}
             >

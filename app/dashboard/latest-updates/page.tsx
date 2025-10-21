@@ -11,220 +11,190 @@ import { getColumns } from "./components/columns";
 import ConfirmActionDialog from "./components/ConfirmActionDialog";
 import { toast } from "sonner";
 
+type ActionType = "delete" | "visibility" | null;
+
 export default function LatestUpdatesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedRows, setSelectedRows] = useState<(string | number)[]>([]);
   const [data, setData] = useState<Update[]>([]);
+  const [totalCount, setTotalCount] =  useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [visibilityDialogOpen, setVisibilityDialogOpen] = useState(false);
-  const [visibilityTarget, setVisibilityTarget] = useState<{ id: string; value: boolean } | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmActionType, setConfirmActionType] = useState<ActionType>(null);
+  const [confirmTarget, setConfirmTarget] = useState<any | null>(null);
+
   const [editTarget, setEditTarget] = useState<any | null>(null);
+const fetchData = async () => {
+  setLoading(true);
 
-  const fetchData = async () => {
-    setLoading(true);
-    const { data: rows, error } = await supabase
-      .from(Tables.LatestUpdates)
-      .select("*")
-      .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Failed to fetch updates:", error);
-      setData([]);
-    } else {
-      setData(
-        (rows || []).map((r: any, idx: number) => ({
-          id: String(r.id ?? idx),
-          postId: r.post_id ?? r.id ?? "",
-          title: r.title ?? "",
-          createdDate: r.created_at ?? "",
-          status: (r.status as any) ?? "Posted",
-          attachment: r.file_url ?? r.attachment ?? "",
-          visibility: !!r.visibility,
-          updatedDate: r.updated_at ?? r.created_at ?? "",
-        }))
-      );
-    }
+  const from = (page - 1) * rowsPerPage;
+  const to = from + rowsPerPage - 1;
 
-    setLoading(false);
-  };
+  const { data: rows, error, count } = await supabase
+    .from(Tables.LatestUpdates)
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, to);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const filteredData = data.filter((item) =>
-    item.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const totalCount = filteredData.length;
-  const paginatedData = filteredData.slice(
-    (page - 1) * rowsPerPage,
-    page * rowsPerPage
-  );
-
-  const handleRowSelect = (id: string | number, selected: boolean) => {
-    setSelectedRows((prev) =>
-      selected ? [...prev, id] : prev.filter((r) => r !== id)
+  if (error) {
+    console.error("Failed to fetch updates:", error);
+    setData([]);
+  } else {
+    setData(
+      (rows || []).map((r: any, idx: number) => ({
+        id: String(r.id ?? idx),
+        postId:  r.id ?? "",
+        title: r.title ?? "",
+        createdDate: r.created_at ?? "",
+        status: r.status ?? "Posted",
+        attachment: r.file_url ?? r.attachment ?? "",
+        visibility: !!r.visibility,
+        updatedDate: r.updated_at ?? r.created_at ?? "",
+      }))
     );
-  };
+  }
 
-  const handleSelectAll = (selected: boolean) => {
+  if (count !== null && count !== undefined) {
+    setTotalCount(count);
+  }
+
+  setLoading(false);
+};
+useEffect(() => {
+  fetchData();
+}, [page, rowsPerPage]);
+
+  const handleRowSelect = (id: string | number, selected: boolean) =>
+    setSelectedRows((prev) => (selected ? [...prev, id] : prev.filter((r) => r !== id)));
+
+  const handleSelectAll = (selected: boolean) =>
     setSelectedRows(selected ? paginatedData.map((row) => row.id) : []);
-  };
-  // open confirmation when toggle switched
-  const handleToggleVisibility = async (id: string, value: boolean) => {
-    setVisibilityTarget({ id, value });
-    setVisibilityDialogOpen(true);
-  };
 
-  const confirmToggleVisibility = async () => {
-    if (!visibilityTarget) return;
-    const { id, value } = visibilityTarget;
-    try {
-      const query = supabase.from(Tables.LatestUpdates).update({ visibility: value });
-      const { error } = await query.eq("id", id);
-      if (error) {
-        console.error("Failed to update visibility:", error);
-        toast.error("Failed to update visibility");
-        return;
-      }
 
-      toast.success(value ? "Item will be visible" : "Item will be hidden");
-      setVisibilityDialogOpen(false);
-      setVisibilityTarget(null);
-      await fetchData();
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to update visibility");
-    }
+  const handleToggleVisibility = (id: string, value: boolean) => {
+    setConfirmTarget({ id, value });
+    setConfirmActionType("visibility");
+    setConfirmDialogOpen(true);
   };
 
-  const deleteSelected = async () => {
-    if (!selectedRows || selectedRows.length === 0) {
-      toast.error("No rows selected");
-      return;
-    }
-
-    try {
-      console.log("Deleting IDs:", selectedRows);
-      const ids = selectedRows.map((id) => (typeof id === "string" ? id : String(id)));
-      console.log("Mapped IDs for deletion:", ids);
-      const { error } = await supabase.from(Tables.LatestUpdates).delete().in("id", ids);
-      console.log("Deletion error:", error);
-      if (error) {
-        console.error("Failed to delete selected updates:", error);
-        toast.error("Failed to delete selected items");
-        return;
-      }
-
-      toast.success("Selected items deleted");
-      setSelectedRows([]);
-      await fetchData();
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to delete selected items");
-    }
-  };
-
-  // single item delete
   const handleDelete = (id: string) => {
-    setDeleteTargetId(id);
-    setDeleteDialogOpen(true);
+    setConfirmTarget({ id });
+    setConfirmActionType("delete");
+    setConfirmDialogOpen(true);
   };
 
-  const confirmDelete = async () => {
-    if (!deleteTargetId) return;
+  const handleConfirmAction = async () => {
+    if (!confirmActionType || !confirmTarget) return;
+
     try {
-      const ids = [deleteTargetId];
-      const { error } = await supabase.from(Tables.LatestUpdates).delete().in("id", ids);
-      if (error) {
-        console.error("Failed to delete item:", error);
-        toast.error("Failed to delete item");
-        return;
+      if (confirmActionType === "visibility") {
+        const { id, value } = confirmTarget;
+        console.log(value , 'value')
+        const { error } = await supabase.from(Tables.LatestUpdates).update({ visibility: value ? 0 : 1 , title : "pallavi" }).eq({});
+        if (error) throw error;
+        toast.success(value ? "Item made visible" : "Item hidden");
       }
 
-      toast.success("Item deleted");
-      setDeleteDialogOpen(false);
-      setDeleteTargetId(null);
+      if (confirmActionType === "delete") {
+        const { id } = confirmTarget;
+        const { error } = await supabase.from(Tables.LatestUpdates).delete().eq("id", id);
+        if (error) throw error;
+        toast.success("Item deleted successfully");
+      }
+
       await fetchData();
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to delete item");
+    } catch (error) {
+      console.error(error);
+      toast.error("Action failed");
+    } finally {
+      setConfirmDialogOpen(false);
+      setConfirmActionType(null);
+      setConfirmTarget(null);
     }
   };
 
-  const handleEdit = (row: Update) => {
-    // Fetch full record from Supabase (to include description and file URL) then open dialog
-    (async () => {
-      try {
-        const { data: full, error } = await supabase
-          .from(Tables.LatestUpdates)
-          .select("*")
-          .eq("id", row.id)
-          .single();
-        if (error) {
-          console.error("Failed to fetch record for edit:", error);
-          // fallback to partial row
-          setEditTarget(row);
-          setIsDialogOpen(true);
-          return;
-        }
+  const handleEdit = async (row: Update) => {
+    try {
+      const { data: full, error } = await supabase
+        .from(Tables.LatestUpdates)
+        .select("*")
+        .eq("id", row.id)
+        .single();
+      if (error) throw error;
 
-        const initial: any = {
-          id: full.id,
-          title: full.title ?? row.title,
-          description: full.description ?? "",
-          fileUrl: (full.file as string) ?? (full.file_url as string) ?? (full.attachment as string) ?? "",
-        };
-
-        setEditTarget(initial);
-        setIsDialogOpen(true);
-      } catch (err) {
-        console.error(err);
-        setEditTarget(row);
-        setIsDialogOpen(true);
-      }
-    })();
+      setEditTarget({
+        id: full.id,
+        title: full.title,
+        description: full.description ?? "",
+        fileUrl: full.file ?? full.file_url ?? "",
+      });
+    } catch (error) {
+      console.error(error);
+      setEditTarget(row);
+    } finally {
+      setIsDialogOpen(true);
+    }
   };
-
 
   return (
     <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-800">Latest Updates</h1>
-      </div>
+      <h1 className="text-3xl font-bold mb-8 text-slate-800">Latest Updates</h1>
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-  <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} onDeleteSelected={deleteSelected} />
+        <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} />
 
-  <AddUpdateDialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditTarget(null); }} onSuccess={fetchData} initialData={editTarget} />
-
-        <ConfirmActionDialog
-          open={visibilityDialogOpen}
-          onOpenChange={setVisibilityDialogOpen}
-          title={visibilityTarget && visibilityTarget.value ? "Hide this item from the website?" : "Show this item on the website?"}
-          description={visibilityTarget && visibilityTarget.value ? "Users will no longer see it" : "Users will see it on the website"}
-          confirmLabel={visibilityTarget && visibilityTarget.value ? "Hide" : "Show"}
-          onConfirm={confirmToggleVisibility}
+        <AddUpdateDialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) setEditTarget(null);
+          }}
+          onSuccess={fetchData}
+          initialData={editTarget}
         />
 
         <ConfirmActionDialog
-          open={deleteDialogOpen}
-          onOpenChange={setDeleteDialogOpen}
-          title="Do you want to delete this item?"
-          description="This cannot be undone"
-          confirmLabel="Delete"
-          onConfirm={confirmDelete}
+          open={confirmDialogOpen}
+          onOpenChange={setConfirmDialogOpen}
+          title={
+            confirmActionType === "delete"
+              ? "Do you want to delete this item?"
+              : confirmTarget?.value
+              ? "Hide this item from the website?"
+              : "Show this item on the website?"
+          }
+          description={
+            confirmActionType === "delete"
+              ? "This cannot be undone"
+              : confirmTarget?.value
+              ? "Users will no longer see it"
+              : "Users will see it on the website"
+          }
+          confirmLabel={
+            confirmActionType === "delete"
+              ? "Delete"
+              : confirmTarget?.value
+              ? "Hide"
+              : "Show"
+          }
+          colorClassname={
+            confirmActionType === "delete"
+              ? "bg-red-500 hover:bg-red-600"
+              : confirmTarget?.value
+              ? "bg-red-500 hover:bg-red-600"
+              : "bg-green-500 hover:bg-green-600"
+          }
+          onConfirm={handleConfirmAction}
         />
 
         <DataTable
           columns={getColumns(handleToggleVisibility, handleDelete, handleEdit)}
-          data={paginatedData}
+          data={data}
           totalRecords={totalCount}
           page={page}
           rowsPerPage={rowsPerPage}
