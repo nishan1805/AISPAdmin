@@ -24,12 +24,12 @@ export const menuData: MenuSection[] = [
       { Name: "Mandatory Disclosure", Icon: "FileCheck", Path: "/dashboard/mandatory-disclosure" }
     ]
   },
-  {
-    Heading: "Admissions",
-    Menus: [
-      { Name: "Transfer Certificates", Icon: "FileSpreadsheet", Path: "/dashboard/transfer-certificates" }
-    ]
-  },
+  // {
+  //   Heading: "Admissions",
+  //   Menus: [
+  //     { Name: "Transfer Certificates", Icon: "FileSpreadsheet", Path: "/dashboard/transfer-certificates" }
+  //   ]
+  // },
   {
     Heading: "People",
     Menus: [

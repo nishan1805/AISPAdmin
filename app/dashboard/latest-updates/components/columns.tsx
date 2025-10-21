@@ -11,19 +11,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {formatDateTime} from "@/lib/date"
+import { LatestUpdate } from "@/lib/status";
 
 export type Update = {
   id: string;
   postId: string;
   title: string;
   createdDate: string;
-  status: "New" | "Posted" | "Deleted";
+  status: LatestUpdate;
   attachment: string;
   visibility: boolean;
   updatedDate: string;
 };
 export const getColumns = (
-  onToggleVisibility: (id: string, value: boolean) => void
+  onToggleVisibility: (id: string, value: boolean) => void,
+  onDelete?: (id: string) => void,
+  onEdit?: (row: Update) => void,
 ) => [
   {
     key: "select",
@@ -65,10 +68,10 @@ export const getColumns = (
 {
   key: "visibility",
   label: "Visibility",
-  render: (row: Update, _index: number, onToggle?: (id: string, value: boolean) => void) => (
+  render: (row: Update) => (
     <Switch
       checked={row.visibility}
-      onCheckedChange={(checked) => onToggle?.(row.id, checked)}
+      onCheckedChange={(checked) => onToggleVisibility(row.id, checked)}
     />
   ),
 },
@@ -85,7 +88,7 @@ export const getColumns = (
   {
     key: "actions",
     label: "",
-    render: () => (
+    render: (row: Update) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon">
@@ -93,9 +96,16 @@ export const getColumns = (
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem>Edit</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { if (typeof onEdit === "function") onEdit(row); }}>Edit</DropdownMenuItem>
           <DropdownMenuItem>View</DropdownMenuItem>
-          <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-red-600"
+            onClick={() => {
+              if (typeof onDelete === "function") onDelete(row.id);
+            }}
+          >
+            Delete
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     ),

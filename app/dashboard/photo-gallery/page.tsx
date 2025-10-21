@@ -55,6 +55,27 @@ export default function PhotoGalleryPage() {
     setSelectedRows(selected ? paginatedData.map((row) => row.id) : []);
   };
 
+  const deleteSelected = async () => {
+    if (!selectedRows || selectedRows.length === 0) {
+      // optional: show a toast or similar
+      return;
+    }
+
+    try {
+      const ids = selectedRows.map((id) => (typeof id === "string" ? id : String(id)));
+      const { error } = await supabase.from(Tables.PhotoGallery).delete().in("id", ids);
+      if (error) {
+        console.error("Failed to delete selected gallery items:", error);
+        return;
+      }
+
+      setSelectedRows([]);
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -62,7 +83,7 @@ export default function PhotoGalleryPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-        <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} />
+  <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} onDeleteSelected={deleteSelected} />
 
         <AddGalleryDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} onSuccess={fetchData} />
 

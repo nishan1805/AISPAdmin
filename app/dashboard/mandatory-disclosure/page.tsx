@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { DataTable } from "@/components/ui/data-table";
 import FilterBar from "./components/FilterBar";
-import { columns, Disclosure } from "./components/columns";
 import AddDisclosureDialog from "./components/AddDisclosureDialog";
 import { supabase } from "@/supabase/client";
 import Tables from "@/lib/tables";
+import { columns, Disclosure } from "./components/columns";
 
 export default function MandatoryDisclosurePage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,6 +55,24 @@ export default function MandatoryDisclosurePage() {
     setSelectedRows(selected ? paginatedData.map((row) => row.id) : []);
   };
 
+  const deleteSelected = async () => {
+    if (!selectedRows || selectedRows.length === 0) return;
+
+    try {
+      const ids = selectedRows.map((id) => (typeof id === "string" ? id : String(id)));
+      const { error } = await supabase.from(Tables.MandatoryDisclosure).delete().in("id", ids);
+      if (error) {
+        console.error("Failed to delete selected disclosures:", error);
+        return;
+      }
+
+      setSelectedRows([]);
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -62,7 +80,7 @@ export default function MandatoryDisclosurePage() {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-        <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} />
+  <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} onDeleteSelected={deleteSelected} />
 
         <AddDisclosureDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} onSuccess={fetchData} />
 

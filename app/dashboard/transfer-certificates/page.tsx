@@ -55,6 +55,24 @@ export default function TransferCertificatesPage() {
     setSelectedRows(selected ? paginatedData.map((row) => row.id) : []);
   };
 
+  const deleteSelected = async () => {
+    if (!selectedRows || selectedRows.length === 0) return;
+
+    try {
+      const ids = selectedRows.map((id) => (typeof id === "string" ? id : String(id)));
+      const { error } = await supabase.from(Tables.TransferCertificates).delete().in("id", ids);
+      if (error) {
+        console.error("Failed to delete selected TCs:", error);
+        return;
+      }
+
+      setSelectedRows([]);
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -62,7 +80,7 @@ export default function TransferCertificatesPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-        <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} />
+  <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} onDeleteSelected={deleteSelected} />
 
         <AddTCDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} onSuccess={fetchData} />
 
