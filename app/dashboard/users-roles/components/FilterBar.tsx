@@ -13,9 +13,10 @@ import {
 interface FilterBarProps {
   onSearch: (query: string) => void;
   onAdd?: () => void;
+  onDeleteSelected?: () => void;
 }
 
-export default function FilterBar({ onSearch, onAdd }: FilterBarProps) {
+export default function FilterBar({ onSearch, onAdd, onDeleteSelected }: FilterBarProps) {
   return (
     <div className="p-6 border-b border-slate-200 flex items-center justify-between">
       <div className="flex items-center space-x-3">

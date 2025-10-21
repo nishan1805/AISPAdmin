@@ -27,5 +27,6 @@ export const loginFormSchema = yup.object({
 export const updateFormSchema = yup.object({
   title: requiredString("Title"),
   description: optionalString(),
-  file: pdfOrImageValidation(5),
+  // file is optional for edit flows; the dialog will enforce requiredness for create mode
+  file: pdfOrImageValidation(5).nullable().notRequired(),
 });

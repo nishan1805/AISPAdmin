@@ -1,5 +1,5 @@
 export enum Tables {
-  LatestUpdates = "Latest Update",
+  LatestUpdates = "latest_updates",
   PhotoGallery = "photo_gallery",
   NewsMedia = "news_media",
   MandatoryDisclosure = "mandatory_disclosure",

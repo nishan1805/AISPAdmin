@@ -54,6 +54,24 @@ export default function UsersRolesPage() {
     setSelectedRows(selected ? paginatedData.map((row) => row.id) : []);
   };
 
+  const deleteSelected = async () => {
+    if (!selectedRows || selectedRows.length === 0) return;
+
+    try {
+      const ids = selectedRows.map((id) => (typeof id === "string" ? id : String(id)));
+      const { error } = await supabase.from(Tables.UsersRoles).delete().in("id", ids);
+      if (error) {
+        console.error("Failed to delete selected users:", error);
+        return;
+      }
+
+      setSelectedRows([]);
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -61,7 +79,7 @@ export default function UsersRolesPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-        <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} />
+  <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} onDeleteSelected={deleteSelected} />
 
         <AddUserDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} onSuccess={fetchData} />
 
