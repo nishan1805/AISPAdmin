@@ -30,7 +30,6 @@ interface AddUpdateDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
-  // initialData allows the dialog to be used for editing an existing update
   initialData?: {
     id?: string | number;
     title?: string;
@@ -53,6 +52,7 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
     watch,
   } = useForm<UpdateFormData>({
     resolver: yupResolver(updateFormSchema),
+    context: { isEdit: !!initialData?.id },
   });
 
   const file = watch("file") as File | File[] | undefined | null;

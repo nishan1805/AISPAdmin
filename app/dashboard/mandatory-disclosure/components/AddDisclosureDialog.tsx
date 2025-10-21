@@ -20,6 +20,7 @@ import { supabase } from "@/supabase/client";
 import Tables from "@/lib/tables";
 import { pdfFileValidation } from "@/lib/yup/schema.helper";
 import * as yupLib from "yup";
+import { LatestUpdate, MandatoryDisclosure } from "@/lib/status";
 
 const disclosureSchema = yupLib.object({
   title: yupLib.string().required("Title is required"),
@@ -55,7 +56,9 @@ export default function AddDisclosureDialog({ open: controlledOpen, onOpenChange
         {
           title: data.title,
           description: data.description,
-          attachment: publicUrl,
+          file_url: publicUrl,
+          visibility: true,
+          status:LatestUpdate.New
         },
       ]);
 

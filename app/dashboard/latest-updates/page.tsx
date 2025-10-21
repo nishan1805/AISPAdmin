@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Update } from "./components/columns";
+import { Update, getColumns } from "./components/columns";
 import { DataTable } from "@/components/ui/data-table";
 import FilterBar from "./components/FilterBar";
 import AddUpdateDialog from "./components/AddUpdateDialog";
 import { supabase } from "@/supabase/client";
 import Tables from "@/lib/tables";
-import { getColumns } from "./components/columns";
-import ConfirmActionDialog from "./components/ConfirmActionDialog";
 import { toast } from "sonner";
+import ConfirmActionDialog from "@/components/shared/ConfirmActionDialog";
 
 type ActionType = "delete" | "visibility" | null;
 
@@ -19,63 +18,63 @@ export default function LatestUpdatesPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedRows, setSelectedRows] = useState<(string | number)[]>([]);
   const [data, setData] = useState<Update[]>([]);
-  const [totalCount, setTotalCount] =  useState<number>(0);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<any | null>(null);
 
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmActionType, setConfirmActionType] = useState<ActionType>(null);
   const [confirmTarget, setConfirmTarget] = useState<any | null>(null);
 
-  const [editTarget, setEditTarget] = useState<any | null>(null);
-const fetchData = async () => {
-  setLoading(true);
+  // -------------------- Fetch Data --------------------
+  const fetchData = async () => {
+    setLoading(true);
 
+    const from = (page - 1) * rowsPerPage;
+    const to = from + rowsPerPage - 1;
 
-  const from = (page - 1) * rowsPerPage;
-  const to = from + rowsPerPage - 1;
+    const { data: rows, error, count } = await supabase
+      .from(Tables.LatestUpdates)
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
-  const { data: rows, error, count } = await supabase
-    .from(Tables.LatestUpdates)
-    .select("*", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .range(from, to);
+    if (error) {
+      console.error("Failed to fetch updates:", error);
+      setData([]);
+    } else {
+      setData(
+        (rows || []).map((r: any, idx: number) => ({
+          id: String(r.id ?? idx),
+          postId: r.id ?? "",
+          title: r.title ?? "",
+          createdDate: r.created_at ?? "",
+          status: r.status ?? "Posted",
+          attachment: r.file_url ?? r.attachment ?? "",
+          visibility: !!r.visibility,
+          updatedDate: r.updated_at ?? r.created_at ?? "",
+        }))
+      );
+    }
 
-  if (error) {
-    console.error("Failed to fetch updates:", error);
-    setData([]);
-  } else {
-    setData(
-      (rows || []).map((r: any, idx: number) => ({
-        id: String(r.id ?? idx),
-        postId:  r.id ?? "",
-        title: r.title ?? "",
-        createdDate: r.created_at ?? "",
-        status: r.status ?? "Posted",
-        attachment: r.file_url ?? r.attachment ?? "",
-        visibility: !!r.visibility,
-        updatedDate: r.updated_at ?? r.created_at ?? "",
-      }))
+    if (count !== null && count !== undefined) setTotalCount(count);
+    setLoading(false);
+  };
+
+  // -------------------- Table Row Selection --------------------
+  const handleRowSelect = (id: string | number, selected: boolean) => {
+    setSelectedRows((prev) =>
+      selected ? [...prev, id] : prev.filter((r) => r !== id)
     );
-  }
+  };
 
-  if (count !== null && count !== undefined) {
-    setTotalCount(count);
-  }
+  const handleSelectAll = (selected: boolean) => {
+    setSelectedRows(selected ? data.map((row) => row.id) : []);
+  };
 
-  setLoading(false);
-};
-useEffect(() => {
-  fetchData();
-}, [page, rowsPerPage]);
-
-  const handleRowSelect = (id: string | number, selected: boolean) =>
-    setSelectedRows((prev) => (selected ? [...prev, id] : prev.filter((r) => r !== id)));
-
-  const handleSelectAll = (selected: boolean) =>
-    setSelectedRows(selected ? paginatedData.map((row) => row.id) : []);
-
-
+  // -------------------- Action Handlers --------------------
   const handleToggleVisibility = (id: string, value: boolean) => {
     setConfirmTarget({ id, value });
     setConfirmActionType("visibility");
@@ -88,28 +87,40 @@ useEffect(() => {
     setConfirmDialogOpen(true);
   };
 
+  // -------------------- Confirm Action --------------------
   const handleConfirmAction = async () => {
     if (!confirmActionType || !confirmTarget) return;
 
     try {
       if (confirmActionType === "visibility") {
         const { id, value } = confirmTarget;
-        console.log(value , 'value')
-        const { error } = await supabase.from(Tables.LatestUpdates).update({ visibility: value ? 0 : 1 , title : "pallavi" }).eq({});
+
+        const { error } = await supabase
+          .from(Tables.LatestUpdates)
+          .update({ visibility: !value })
+          .eq("id", id);
+
         if (error) throw error;
-        toast.success(value ? "Item made visible" : "Item hidden");
+
+        toast.success(!value ? "Item made visible" : "Item hidden");
       }
 
       if (confirmActionType === "delete") {
         const { id } = confirmTarget;
-        const { error } = await supabase.from(Tables.LatestUpdates).delete().eq("id", id);
+        const { error } = await supabase
+          .from(Tables.LatestUpdates)
+          .delete()
+          .eq("id", id);
+
         if (error) throw error;
+
         toast.success("Item deleted successfully");
       }
 
+      // Refresh data after action
       await fetchData();
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
       toast.error("Action failed");
     } finally {
       setConfirmDialogOpen(false);
@@ -118,6 +129,36 @@ useEffect(() => {
     }
   };
 
+  // -------------------- Delete Multiple --------------------
+  const deleteSelected = async () => {
+    if (!selectedRows.length) {
+      toast.error("No rows selected");
+      return;
+    }
+    try {
+      const ids = selectedRows.map((id) => String(id));
+      const { error } = await supabase
+        .from(Tables.LatestUpdates)
+        .delete()
+        .in("id", ids);
+
+      if (error) {
+        console.error("Failed to delete selected updates:", error);
+        toast.error("Failed to delete selected items");
+        return;
+      }
+
+      toast.success("Selected items deleted");
+      await fetchData();
+    } catch (error) {
+      console.error(error);
+      toast.error("Action failed");
+    } finally {
+      setSelectedRows([]);
+    }
+  };
+
+  // -------------------- Edit Handler --------------------
   const handleEdit = async (row: Update) => {
     try {
       const { data: full, error } = await supabase
@@ -125,28 +166,49 @@ useEffect(() => {
         .select("*")
         .eq("id", row.id)
         .single();
-      if (error) throw error;
 
-      setEditTarget({
+      if (error) {
+        console.error("Failed to fetch record for edit:", error);
+        setEditTarget(row);
+        setIsDialogOpen(true);
+        return;
+      }
+
+      const initial = {
         id: full.id,
-        title: full.title,
+        title: full.title ?? row.title,
         description: full.description ?? "",
-        fileUrl: full.file ?? full.file_url ?? "",
-      });
-    } catch (error) {
-      console.error(error);
+        fileUrl:
+          full.file ?? full.file_url ?? full.attachment ?? row.attachment ?? "",
+      };
+
+      setEditTarget(initial);
+      setIsDialogOpen(true);
+    } catch (err) {
+      console.error(err);
       setEditTarget(row);
-    } finally {
       setIsDialogOpen(true);
     }
   };
 
+  // -------------------- Lifecycle --------------------
+  useEffect(() => {
+    fetchData();
+  }, [page, rowsPerPage]);
+
+  // -------------------- JSX --------------------
   return (
     <div className="p-8">
-      <h1 className="text-3xl font-bold mb-8 text-slate-800">Latest Updates</h1>
+      <h1 className="text-3xl font-bold mb-8 text-slate-800">
+        Latest Updates
+      </h1>
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-        <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} />
+        <FilterBar
+          onSearch={setSearchQuery}
+          onAdd={() => setIsDialogOpen(true)}
+          onDeleteSelected={deleteSelected}
+        />
 
         <AddUpdateDialog
           open={isDialogOpen}

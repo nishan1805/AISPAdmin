@@ -27,6 +27,17 @@ export const loginFormSchema = yup.object({
 export const updateFormSchema = yup.object({
   title: requiredString("Title"),
   description: optionalString(),
-  // file is optional for edit flows; the dialog will enforce requiredness for create mode
-  file: pdfOrImageValidation(5).nullable().notRequired(),
+  // file: required only for create flows. When resolver receives context { isEdit: true } file becomes optional
+  file: yup.mixed().test("file-required-if-create", function (value) {
+    const isEdit = !!(this?.options as any)?.context?.isEdit;
+    if (isEdit) return true; // optional in edit mode
+    // create mode: validate via pdfOrImageValidation
+    const validator = pdfOrImageValidation(5);
+    try {
+      validator.validateSync(value);
+      return true;
+    } catch (e: any) {
+      return this.createError({ message: e?.message || "A valid file is required" });
+    }
+  }),
 });
