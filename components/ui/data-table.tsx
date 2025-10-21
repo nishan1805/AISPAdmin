@@ -86,7 +86,6 @@ export function DataTable<T extends { id: string | number }>({
                   className={`cursor-pointer hover:bg-blue-50 ${
                     selectedRows.includes(row.id) ? "bg-blue-50" : ""
                   }`}
-                  onClick={() => onRowSelect(row.id, !selectedRows.includes(row.id))}
                 >
                   {columns.map((col) => (
                     <TableCell key={col.key as string}>

@@ -9,10 +9,10 @@ interface FileUploadProps {
   file?: File | File[];
   multiple?: boolean;
   error?: string;
-  accept?: string; // e.g. "application/pdf,image/*"
+  accept?: string; 
   disabled?: boolean;
-  maxSize?: number; // in bytes, e.g. 10 * 1024 * 1024
-  label?: string; // optional label above drop area
+  maxSize?: number; 
+  label?: string;
 }
 
 export default function FileUpload({
@@ -22,7 +22,7 @@ export default function FileUpload({
   error,
   accept = "application/pdf, image/*",
   disabled = false,
-  maxSize = 10 * 1024 * 1024, // default 10 MB
+  maxSize = 5 * 1024 * 1024, 
   label = "Upload a file or drag and drop",
 }: FileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);

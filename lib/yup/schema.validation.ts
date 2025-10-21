@@ -27,5 +27,5 @@ export const loginFormSchema = yup.object({
 export const updateFormSchema = yup.object({
   title: requiredString("Title"),
   description: optionalString(),
-  file: pdfOrImageValidation(10),
+  file: pdfOrImageValidation(5),
 });

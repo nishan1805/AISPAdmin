@@ -59,12 +59,10 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
 
       if (uploadError) throw uploadError;
 
-      // ✅ Get public URL
       const {
         data: { publicUrl },
       } = supabase.storage.from("AISPPUR").getPublicUrl(filePath);
 
-      // ✅ Insert record into database
       const { error: insertError } = await supabase.from(Tables.LatestUpdates).insert([
         {
           title: data.title,

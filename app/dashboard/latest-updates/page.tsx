@@ -7,6 +7,7 @@ import FilterBar from "./components/FilterBar";
 import AddUpdateDialog from "./components/AddUpdateDialog";
 import { supabase } from "@/supabase/client";
 import Tables from "@/lib/tables";
+import { getColumns } from "./components/columns";
 
 export default function LatestUpdatesPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -28,7 +29,6 @@ export default function LatestUpdatesPage() {
       console.error("Failed to fetch updates:", error);
       setData([]);
     } else {
-      // Map DB rows to Update type expected by table (add id if missing)
       setData(
         (rows || []).map((r: any, idx: number) => ({
           id: String(r.id ?? idx),
@@ -69,6 +69,16 @@ export default function LatestUpdatesPage() {
   const handleSelectAll = (selected: boolean) => {
     setSelectedRows(selected ? paginatedData.map((row) => row.id) : []);
   };
+  const handleToggleVisibility = async (id: string, value: boolean) => {
+  try {
+    // Example API or Supabase update
+    await supabase.from("updates").update({ visibility: value }).eq("id", id);
+    toast.success(`Visibility updated to ${value ? "Visible" : "Hidden"}`);
+  } catch (error) {
+    toast.error("Failed to update visibility");
+  }
+};
+
 
   return (
     <div className="p-8">
@@ -82,7 +92,7 @@ export default function LatestUpdatesPage() {
         <AddUpdateDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} onSuccess={fetchData} />
 
         <DataTable
-          columns={columns}
+          columns={getColumns(handleToggleVisibility)}
           data={paginatedData}
           totalRecords={totalCount}
           page={page}
