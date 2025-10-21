@@ -53,19 +53,16 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
     try {
       const filePath = `latest-update/${Date.now()}_${data.file.name}`;
 
-      // ✅ Upload file to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("AISPPUR")
         .upload(filePath, data.file);
 
       if (uploadError) throw uploadError;
 
-      // ✅ Get public URL
       const {
         data: { publicUrl },
       } = supabase.storage.from("AISPPUR").getPublicUrl(filePath);
 
-      // ✅ Insert record into database
       const { error: insertError } = await supabase.from(Tables.LatestUpdates).insert([
         {
           title: data.title,

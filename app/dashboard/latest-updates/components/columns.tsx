@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { FileText, MoreVertical } from "lucide-react";
+import { FileText, MoreVertical , Dot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,9 +10,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {formatDateTime} from "@/lib/date"
 
 export type Update = {
-  id: string; // 👈 Added ID for selection
+  id: string;
   postId: string;
   title: string;
   createdDate: string;
@@ -21,23 +22,21 @@ export type Update = {
   visibility: boolean;
   updatedDate: string;
 };
-
-export const columns = [
+export const getColumns = (
+  onToggleVisibility: (id: string, value: boolean) => void
+) => [
   {
     key: "select",
     label: "",
   },
   {
-    key: "postId",
-    label: "Post ID",
+    key: "serialNo",
+    label: "S.No.",
+    render: (_: Update, index: number) => index + 1,
   },
   {
     key: "title",
     label: "Title",
-  },
-  {
-    key: "createdDate",
-    label: "Created Date & Time",
   },
   {
     key: "status",
@@ -50,7 +49,7 @@ export const columns = [
           : status === "Posted"
           ? "bg-blue-100 text-blue-700 hover:bg-blue-100"
           : "bg-red-100 text-red-700 hover:bg-red-100";
-      return <Badge className={badgeClass}>{status}</Badge>;
+      return <Badge className={badgeClass}><Dot/>{status}</Badge>;
     },
   },
   {
@@ -63,14 +62,25 @@ export const columns = [
       </div>
     ),
   },
-  {
-    key: "visibility",
-    label: "Visibility",
-    render: (row: Update) => <Switch checked={row.visibility} />,
+{
+  key: "visibility",
+  label: "Visibility",
+  render: (row: Update, _index: number, onToggle?: (id: string, value: boolean) => void) => (
+    <Switch
+      checked={row.visibility}
+      onCheckedChange={(checked) => onToggle?.(row.id, checked)}
+    />
+  ),
+},
+ {
+    key: "createdDate",
+    label: "Created Date & Time",
+    render: (row: Update) => formatDateTime(row.createdDate),
   },
   {
     key: "updatedDate",
     label: "Updated Date & Time",
+    render: (row: Update) => formatDateTime(row.updatedDate),
   },
   {
     key: "actions",
