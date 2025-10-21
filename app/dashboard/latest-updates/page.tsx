@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Update } from "./components/columns";
-import { Update } from "./components/columns";
+import { Update, getColumns } from "./components/columns";
 import { DataTable } from "@/components/ui/data-table";
 import FilterBar from "./components/FilterBar";
 import AddUpdateDialog from "./components/AddUpdateDialog";
 import { supabase } from "@/supabase/client";
 import Tables from "@/lib/tables";
-import { getColumns } from "./components/columns";
 import { toast } from "sonner";
 import ConfirmActionDialog from "@/components/shared/ConfirmActionDialog";
 
@@ -20,11 +18,6 @@ export default function LatestUpdatesPage() {
   const [data, setData] = useState<Update[]>([]);
   const [loading, setLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [visibilityDialogOpen, setVisibilityDialogOpen] = useState(false);
-  const [visibilityTarget, setVisibilityTarget] = useState<{ id: string; value: boolean } | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [editTarget, setEditTarget] = useState<any | null>(null);
   const [visibilityDialogOpen, setVisibilityDialogOpen] = useState(false);
   const [visibilityTarget, setVisibilityTarget] = useState<{ id: string; value: boolean } | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -82,9 +75,8 @@ export default function LatestUpdatesPage() {
   const handleSelectAll = (selected: boolean) => {
     setSelectedRows(selected ? paginatedData.map((row) => row.id) : []);
   };
-  // open confirmation when toggle switched
-  // open confirmation when toggle switched
-  const handleToggleVisibility = async (id: string, value: boolean) => {
+
+  const handleToggleVisibility = (id: string, value: boolean) => {
     setVisibilityTarget({ id, value });
     setVisibilityDialogOpen(true);
   };
@@ -93,33 +85,11 @@ export default function LatestUpdatesPage() {
     if (!visibilityTarget) return;
     const { id, value } = visibilityTarget;
     try {
-      const query = supabase.from(Tables.LatestUpdates).update({ visibility: value });
-      const { error } = await query.eq("id", id);
-      if (error) {
-        console.error("Failed to update visibility:", error);
-        toast.error("Failed to update visibility");
-        return;
-      }
+      const { error } = await supabase
+        .from(Tables.LatestUpdates)
+        .update({ visibility: value })
+        .eq("id", id);
 
-      toast.success(value ? "Item will be visible" : "Item will be hidden");
-      setVisibilityDialogOpen(false);
-      setVisibilityTarget(null);
-      await fetchData();
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to update visibility");
-    }
-  };
-    setVisibilityTarget({ id, value });
-    setVisibilityDialogOpen(true);
-  };
-
-  const confirmToggleVisibility = async () => {
-    if (!visibilityTarget) return;
-    const { id, value } = visibilityTarget;
-    try {
-      const query = supabase.from(Tables.LatestUpdates).update({ visibility: value });
-      const { error } = await query.eq("id", id);
       if (error) {
         console.error("Failed to update visibility:", error);
         toast.error("Failed to update visibility");
@@ -137,17 +107,18 @@ export default function LatestUpdatesPage() {
   };
 
   const deleteSelected = async () => {
-    if (!selectedRows || selectedRows.length === 0) {
+    if (!selectedRows.length) {
       toast.error("No rows selected");
       return;
     }
 
     try {
-      console.log("Deleting IDs:", selectedRows);
-      const ids = selectedRows.map((id) => (typeof id === "string" ? id : String(id)));
-      console.log("Mapped IDs for deletion:", ids);
-      const { error } = await supabase.from(Tables.LatestUpdates).delete().in("id", ids);
-      console.log("Deletion error:", error);
+      const ids = selectedRows.map((id) => String(id));
+      const { error } = await supabase
+        .from(Tables.LatestUpdates)
+        .delete()
+        .in("id", ids);
+
       if (error) {
         console.error("Failed to delete selected updates:", error);
         toast.error("Failed to delete selected items");
@@ -163,7 +134,6 @@ export default function LatestUpdatesPage() {
     }
   };
 
-  // single item delete
   const handleDelete = (id: string) => {
     setDeleteTargetId(id);
     setDeleteDialogOpen(true);
@@ -172,8 +142,11 @@ export default function LatestUpdatesPage() {
   const confirmDelete = async () => {
     if (!deleteTargetId) return;
     try {
-      const ids = [deleteTargetId];
-      const { error } = await supabase.from(Tables.LatestUpdates).delete().in("id", ids);
+      const { error } = await supabase
+        .from(Tables.LatestUpdates)
+        .delete()
+        .eq("id", deleteTargetId);
+
       if (error) {
         console.error("Failed to delete item:", error);
         toast.error("Failed to delete item");
@@ -191,7 +164,6 @@ export default function LatestUpdatesPage() {
   };
 
   const handleEdit = (row: Update) => {
-    // Fetch full record from Supabase (to include description and file URL) then open dialog
     (async () => {
       try {
         const { data: full, error } = await supabase
@@ -199,19 +171,24 @@ export default function LatestUpdatesPage() {
           .select("*")
           .eq("id", row.id)
           .single();
+
         if (error) {
           console.error("Failed to fetch record for edit:", error);
-          // fallback to partial row
           setEditTarget(row);
           setIsDialogOpen(true);
           return;
         }
 
-        const initial: any = {
+        const initial = {
           id: full.id,
           title: full.title ?? row.title,
           description: full.description ?? "",
-          fileUrl: (full.file as string) ?? (full.file_url as string) ?? (full.attachment as string) ?? "",
+          fileUrl:
+            full.file ??
+            full.file_url ??
+            full.attachment ??
+            row.attachment ??
+            "",
         };
 
         setEditTarget(initial);
@@ -223,95 +200,6 @@ export default function LatestUpdatesPage() {
       }
     })();
   };
-
-  const deleteSelected = async () => {
-    if (!selectedRows || selectedRows.length === 0) {
-      toast.error("No rows selected");
-      return;
-    }
-
-    try {
-      console.log("Deleting IDs:", selectedRows);
-      const ids = selectedRows.map((id) => (typeof id === "string" ? id : String(id)));
-      console.log("Mapped IDs for deletion:", ids);
-      const { error } = await supabase.from(Tables.LatestUpdates).delete().in("id", ids);
-      console.log("Deletion error:", error);
-      if (error) {
-        console.error("Failed to delete selected updates:", error);
-        toast.error("Failed to delete selected items");
-        return;
-      }
-
-      toast.success("Selected items deleted");
-      setSelectedRows([]);
-      await fetchData();
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to delete selected items");
-    }
-  };
-
-  // single item delete
-  const handleDelete = (id: string) => {
-    setDeleteTargetId(id);
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteTargetId) return;
-    try {
-      const ids = [deleteTargetId];
-      const { error } = await supabase.from(Tables.LatestUpdates).delete().in("id", ids);
-      if (error) {
-        console.error("Failed to delete item:", error);
-        toast.error("Failed to delete item");
-        return;
-      }
-
-      toast.success("Item deleted");
-      setDeleteDialogOpen(false);
-      setDeleteTargetId(null);
-      await fetchData();
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to delete item");
-    }
-  };
-
-  const handleEdit = (row: Update) => {
-    // Fetch full record from Supabase (to include description and file URL) then open dialog
-    (async () => {
-      try {
-        const { data: full, error } = await supabase
-          .from(Tables.LatestUpdates)
-          .select("*")
-          .eq("id", row.id)
-          .single();
-        if (error) {
-          console.error("Failed to fetch record for edit:", error);
-          // fallback to partial row
-          setEditTarget(row);
-          setIsDialogOpen(true);
-          return;
-        }
-
-        const initial: any = {
-          id: full.id,
-          title: full.title ?? row.title,
-          description: full.description ?? "",
-          fileUrl: (full.file as string) ?? (full.file_url as string) ?? (full.attachment as string) ?? "",
-        };
-
-        setEditTarget(initial);
-        setIsDialogOpen(true);
-      } catch (err) {
-        console.error(err);
-        setEditTarget(row);
-        setIsDialogOpen(true);
-      }
-    })();
-  };
-
 
   return (
     <div className="p-8">
@@ -320,18 +208,37 @@ export default function LatestUpdatesPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-  <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} onDeleteSelected={deleteSelected} />
-  <FilterBar onSearch={setSearchQuery} onAdd={() => setIsDialogOpen(true)} onDeleteSelected={deleteSelected} />
+        <FilterBar
+          onSearch={setSearchQuery}
+          onAdd={() => setIsDialogOpen(true)}
+          onDeleteSelected={deleteSelected}
+        />
 
-  <AddUpdateDialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditTarget(null); }} onSuccess={fetchData} initialData={editTarget} />
+        <AddUpdateDialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) setEditTarget(null);
+          }}
+          onSuccess={fetchData}
+          initialData={editTarget}
+        />
 
         <ConfirmActionDialog
           open={visibilityDialogOpen}
           onOpenChange={setVisibilityDialogOpen}
-          title={visibilityTarget && visibilityTarget.value ? "Show this item on the website?" : "Hide this item from the website?"}
-          description={visibilityTarget && visibilityTarget.value ? "Make this item visible on the website" : "Users will no longer see it"}
-          confirmLabel={visibilityTarget && visibilityTarget.value ? "Show" : "Hide"}
-          variant={visibilityTarget && visibilityTarget.value ? "success" : "danger"}
+          title={
+            visibilityTarget?.value
+              ? "Show this item on the website?"
+              : "Hide this item from the website?"
+          }
+          description={
+            visibilityTarget?.value
+              ? "Make this item visible on the website"
+              : "Users will no longer see it"
+          }
+          confirmLabel={visibilityTarget?.value ? "Show" : "Hide"}
+          variant={visibilityTarget?.value ? "success" : "danger"}
           onConfirm={confirmToggleVisibility}
         />
 
