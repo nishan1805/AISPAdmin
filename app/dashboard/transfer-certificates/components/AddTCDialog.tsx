@@ -35,12 +35,20 @@ interface AddTCDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
+  initialData?: {
+    id?: string | number;
+    admissionNo?: string;
+    studentName?: string;
+    dob?: string;
+    issueDate?: string;
+    fileUrl?: string;
+  } | null;
 }
 
-export default function AddTCDialog({ open: controlledOpen, onOpenChange, onSuccess }: AddTCDialogProps) {
+export default function AddTCDialog({ open: controlledOpen, onOpenChange, onSuccess, initialData = null }: AddTCDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = typeof controlledOpen === "boolean" ? controlledOpen : internalOpen;
-  const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => {}) : setInternalOpen;
+  const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => { }) : setInternalOpen;
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<TCForm>({ resolver: yupResolver(tcSchema) });
 
@@ -116,7 +124,7 @@ export default function AddTCDialog({ open: controlledOpen, onOpenChange, onSucc
           />
 
           <DialogFooter className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => { reset(); setOpen(false); }} disabled={isSubmitting}>Cancel</Button>
+            <Button type="button" onClick={() => { reset(); setOpen(false); }} disabled={isSubmitting}>Cancel</Button>
             <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Uploading..." : "Save & Publish"}</Button>
           </DialogFooter>
         </form>

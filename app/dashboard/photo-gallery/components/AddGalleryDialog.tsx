@@ -24,12 +24,19 @@ interface AddGalleryDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
+  initialData?: {
+    id?: string | number;
+    title?: string;
+    description?: string;
+    eventDate?: string;
+    images?: string[];
+  } | null;
 }
 
-export default function AddGalleryDialog({ open: controlledOpen, onOpenChange, onSuccess }: AddGalleryDialogProps) {
+export default function AddGalleryDialog({ open: controlledOpen, onOpenChange, onSuccess, initialData = null }: AddGalleryDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = typeof controlledOpen === "boolean" ? controlledOpen : internalOpen;
-  const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => {}) : setInternalOpen;
+  const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => { }) : setInternalOpen;
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<GalleryFormData>({ resolver: yupResolver(galleryFormSchema) });
 
@@ -109,7 +116,7 @@ export default function AddGalleryDialog({ open: controlledOpen, onOpenChange, o
           />
 
           <DialogFooter className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => { reset(); setOpen(false); }} disabled={isSubmitting}>Cancel</Button>
+            <Button type="button" onClick={() => { reset(); setOpen(false); }} disabled={isSubmitting}>Cancel</Button>
             <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Creating..." : "Create Gallery"}</Button>
           </DialogFooter>
         </form>

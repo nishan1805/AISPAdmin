@@ -32,12 +32,20 @@ interface AddUserDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
+  initialData?: {
+    id?: string | number;
+    name?: string;
+    role?: string;
+    department?: string;
+    accessLevel?: string;
+    email?: string;
+  } | null;
 }
 
-export default function AddUserDialog({ open: controlledOpen, onOpenChange, onSuccess }: AddUserDialogProps) {
+export default function AddUserDialog({ open: controlledOpen, onOpenChange, onSuccess, initialData = null }: AddUserDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = typeof controlledOpen === "boolean" ? controlledOpen : internalOpen;
-  const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => {}) : setInternalOpen;
+  const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => { }) : setInternalOpen;
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<UserForm>({ resolver: yupResolver(userSchema) });
 
@@ -104,7 +112,7 @@ export default function AddUserDialog({ open: controlledOpen, onOpenChange, onSu
           </div>
 
           <DialogFooter className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => { reset(); setOpen(false); }} disabled={isSubmitting}>Cancel</Button>
+            <Button type="button" onClick={() => { reset(); setOpen(false); }} disabled={isSubmitting}>Cancel</Button>
             <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Saving..." : "Save"}</Button>
           </DialogFooter>
         </form>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import {
@@ -33,31 +33,71 @@ interface AddJobDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
+  initialData?: {
+    id?: string | number;
+    title?: string;
+    department?: string;
+    jobType?: string;
+    description?: string;
+    qualifications?: string;
+    lastDateToApply?: string;
+  } | null;
 }
 
-export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuccess }: AddJobDialogProps) {
+export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuccess, initialData = null }: AddJobDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = typeof controlledOpen === "boolean" ? controlledOpen : internalOpen;
-  const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => {}) : setInternalOpen;
+  const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => { }) : setInternalOpen;
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<JobForm>({ resolver: yupResolver(jobSchema) });
+  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<JobForm>({ resolver: yupResolver(jobSchema) });
+
+  // Prefill form when initialData changes
+  React.useEffect(() => {
+    if (initialData) {
+      if (initialData.title) setValue("title", initialData.title);
+      if (initialData.department) setValue("department", initialData.department);
+      if (initialData.jobType) setValue("jobType", initialData.jobType);
+      if (initialData.lastDateToApply) setValue("lastDateToApply", initialData.lastDateToApply);
+    } else {
+      reset();
+    }
+  }, [initialData]);
 
   const onSubmit = async (data: JobForm) => {
     try {
-      const { error: insertError } = await supabase.from(Tables.Jobs).insert([
-        {
-          title: data.title,
-          department: data.department,
-          posted_date: data.postedDate,
-          last_date_to_apply: data.lastDateToApply,
-          job_type: data.jobType,
-          status: "Open",
-        },
-      ]);
+      if (initialData && initialData.id) {
+        // Edit flow
+        const { error: updateError } = await supabase
+          .from(Tables.Jobs)
+          .update({
+            title: data.title,
+            department: data.department,
+            posted_date: data.postedDate,
+            last_date_to_apply: data.lastDateToApply,
+            job_type: data.jobType,
+          })
+          .eq("id", initialData.id);
 
-      if (insertError) throw insertError;
+        if (updateError) throw updateError;
+        toast.success("Job updated successfully");
+      } else {
+        // Create flow
+        const { error: insertError } = await supabase.from(Tables.Jobs).insert([
+          {
+            title: data.title,
+            department: data.department,
+            posted_date: data.postedDate,
+            last_date_to_apply: data.lastDateToApply,
+            job_type: data.jobType,
+            status: "Open",
+            visibility: true,
+          },
+        ]);
 
-      toast.success("Job created successfully");
+        if (insertError) throw insertError;
+        toast.success("Job created successfully");
+      }
+
       reset();
       setOpen(false);
       if (onSuccess) onSuccess();
@@ -70,7 +110,7 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-lg p-6">
         <DialogHeader>
-          <DialogTitle>Create Job</DialogTitle>
+          <DialogTitle>{initialData && initialData.id ? "Edit Job" : "Create Job"}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
@@ -105,8 +145,16 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
           </div>
 
           <DialogFooter className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => { reset(); setOpen(false); }} disabled={isSubmitting}>Cancel</Button>
-            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Creating..." : "Create Job"}</Button>
+            <Button type="button" onClick={() => { reset(); setOpen(false); }} disabled={isSubmitting}>Cancel</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting
+                ? initialData && initialData.id
+                  ? "Updating..."
+                  : "Creating..."
+                : initialData && initialData.id
+                  ? "Update Job"
+                  : "Create Job"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
