@@ -28,7 +28,6 @@ import * as yupLib from "yup";
 
 const jobSchema = yupLib.object({
   title: yupLib.string().required("Title is required"),
-  department: yupLib.string().required("Department is required"),
   subject: yupLib.string().required("Subject is required"),
   description: yupLib.string().optional(),
   lastDateToApply: yupLib.string().required("Last date to apply is required"),
@@ -44,7 +43,6 @@ interface AddJobDialogProps {
   initialData?: {
     id?: string | number;
     title?: string;
-    department?: string;
     subject?: string;
     description?: string;
     jobType?: string;
@@ -65,7 +63,6 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
   React.useEffect(() => {
     if (initialData) {
       if (initialData.title) setValue("title", initialData.title);
-      if (initialData.department) setValue("department", initialData.department);
       if (initialData.subject) setValue("subject", initialData.subject);
       if (initialData.description) setValue("description", initialData.description);
       if (initialData.jobType) setValue("jobType", initialData.jobType as any);
@@ -83,7 +80,6 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
           .from(Tables.Jobs)
           .update({
             title: data.title,
-            department: data.department,
             subject: data.subject,
             description: data.description,
             last_date_to_apply: data.lastDateToApply,
@@ -98,7 +94,6 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
         const { error: insertError } = await supabase.from(Tables.Jobs).insert([
           {
             title: data.title,
-            department: data.department,
             subject: data.subject,
             description: data.description,
             last_date_to_apply: data.lastDateToApply,
@@ -138,12 +133,6 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
             <Label className="text-sm">Subject</Label>
             <Input placeholder="Subject" {...register("subject")} />
             {errors.subject && <p className="text-red-500 text-sm">{errors.subject.message}</p>}
-          </div>
-
-          <div>
-            <Label className="text-sm">Department</Label>
-            <Input placeholder="Department" {...register("department")} />
-            {errors.department && <p className="text-red-500 text-sm">{errors.department.message}</p>}
           </div>
 
           <div>

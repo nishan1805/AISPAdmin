@@ -41,7 +41,7 @@ export default function JobsPage() {
 
     // Apply search filter
     if (searchQuery.trim()) {
-      query = query.or(`title.ilike.%${searchQuery}%,department.ilike.%${searchQuery}%,subject.ilike.%${searchQuery}%`);
+      query = query.or(`title.ilike.%${searchQuery}%,subject.ilike.%${searchQuery}%`);
     }
 
     const from = (page - 1) * rowsPerPage;
@@ -66,7 +66,6 @@ export default function JobsPage() {
             jobId: job.job_id ?? job.id ?? "",
             title: job.title ?? "",
             subject: job.subject ?? "",
-            department: job.department ?? "",
             lastDateToApply: job.last_date_to_apply ?? "",
             jobType: job.job_type ?? "",
             status: job.status ?? "Open",
@@ -204,6 +203,7 @@ export default function JobsPage() {
       toast.error("No rows selected");
       return;
     }
+
     try {
       const ids = selectedRows.map((id) => String(id));
 
@@ -296,7 +296,6 @@ export default function JobsPage() {
         id: full.id,
         title: full.title ?? row.title,
         subject: full.subject ?? row.subject,
-        department: full.department ?? row.department,
         description: full.description ?? "",
         jobType: full.job_type ?? row.jobType,
         lastDateToApply: full.last_date_to_apply ?? row.lastDateToApply,
@@ -399,4 +398,3 @@ export default function JobsPage() {
     </div>
   );
 }
-
