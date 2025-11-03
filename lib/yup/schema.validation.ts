@@ -11,11 +11,27 @@ export const galleryFormSchema = yup.object({
   title: requiredString("Album name"),
   eventDate: yup.string().required("Event Date is required"),
   description: yup.string().nullable(),
-  files: yup
-    .array()
-    .of(imageFileValidation(5))
-    .min(1, "At least one image is required")
-    .required("Images are required"),
+  files: yup.array().test("files-required-if-create", function (value) {
+    const isEdit = !!(this?.options as any)?.context?.isEdit;
+    if (isEdit) return true; // optional in edit mode
+    
+    // create mode: require at least one image
+    if (!value || !Array.isArray(value) || value.length === 0) {
+      return this.createError({ message: "At least one image is required" });
+    }
+    
+    // validate each file
+    for (const file of value) {
+      const validator = imageFileValidation(5);
+      try {
+        validator.validateSync(file);
+      } catch (e: any) {
+        return this.createError({ message: e?.message || "Invalid image file" });
+      }
+    }
+    
+    return true;
+  }),
 });
 
 export type GalleryFormData = yup.InferType<typeof galleryFormSchema>;

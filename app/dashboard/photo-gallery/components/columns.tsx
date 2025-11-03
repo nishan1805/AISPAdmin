@@ -39,8 +39,13 @@ export const getGalleryColumns = (
       label: "Cover (thumbnail)",
       render: (row: Photo) => (
         <div className="flex items-center">
-          <ImageIcon size={16} className="mr-2 text-slate-600" />
-          <span className="text-slate-600">Img</span>
+          {row.cover ? (
+            <a href={row.cover} target="_blank" rel="noopener noreferrer" title="Open image" className="text-slate-600 hover:text-slate-800">
+              <ImageIcon size={18} />
+            </a>
+          ) : (
+            <div className="text-slate-600 flex items-center gap-2"><ImageIcon size={16} /> <span>Img</span></div>
+          )}
         </div>
       ),
     },
@@ -108,8 +113,13 @@ export const columns = [
     label: "Cover (thumbnail)",
     render: (row: Photo) => (
       <div className="flex items-center">
-        <ImageIcon size={16} className="mr-2 text-slate-600" />
-        <span className="text-slate-600">Img</span>
+        {row.cover ? (
+          <a href={row.cover} target="_blank" rel="noopener noreferrer" title="Open image" className="text-slate-600 hover:text-slate-800">
+            <ImageIcon size={18} />
+          </a>
+        ) : (
+          <div className="text-slate-600 flex items-center gap-2"><ImageIcon size={16} /> <span>Img</span></div>
+        )}
       </div>
     ),
   },

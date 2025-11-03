@@ -9,9 +9,9 @@ interface FileUploadProps {
   file?: File | File[];
   multiple?: boolean;
   error?: string;
-  accept?: string; 
+  accept?: string;
   disabled?: boolean;
-  maxSize?: number; 
+  maxSize?: number;
   label?: string;
 }
 
@@ -22,7 +22,7 @@ export default function FileUpload({
   error,
   accept = "application/pdf, image/*",
   disabled = false,
-  maxSize = 5 * 1024 * 1024, 
+  maxSize = 5 * 1024 * 1024,
   label = "Upload a file or drag and drop",
 }: FileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -82,9 +82,8 @@ export default function FileUpload({
               {accept.includes("pdf") ? "PDF up to" : "Max"} {Math.round(maxSize / (1024 * 1024))} MB
             </p>
             <Button
-              variant="link"
               type="button"
-              className="text-indigo-600 mt-1"
+              className="text-indigo-600 mt-1 underline"
               disabled={disabled}
               onClick={() => fileInputRef.current?.click()}
             >

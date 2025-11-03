@@ -89,6 +89,114 @@ export default function PhotoGalleryPage() {
   };
 
   // -------------------- Confirm Action --------------------
+  // -------------------- File Deletion Helper --------------------
+  const deleteFileFromStorage = async (fileUrl: string) => {
+    if (!fileUrl) return false;
+    try {
+      console.log("Attempting to delete file:", fileUrl);
+
+      // Try different methods to extract the file path
+      let filePath = "";
+
+      if (fileUrl.includes("/storage/v1/object/public/AISPPUR/")) {
+        // Standard Supabase storage URL format
+        const parts = fileUrl.split("/storage/v1/object/public/AISPPUR/");
+        if (parts.length > 1) {
+          filePath = decodeURIComponent(parts[1]); // Decode URL encoding
+        }
+      } else if (fileUrl.includes("AISPPUR")) {
+        // Fallback: extract everything after AISPPUR
+        const urlParts = fileUrl.split("/");
+        const storageIndex = urlParts.findIndex((part) => part === "AISPPUR");
+        if (storageIndex !== -1 && storageIndex < urlParts.length - 1) {
+          const rawPath = urlParts.slice(storageIndex + 1).join("/");
+          filePath = decodeURIComponent(rawPath); // Decode URL encoding
+        }
+      }
+
+      if (filePath) {
+        console.log("Extracted file path for deletion:", filePath);
+        const { error } = await supabase.storage.from("AISPPUR").remove([filePath]);
+        if (error) {
+          console.error("Failed to delete file:", filePath, error);
+          return false;
+        } else {
+          console.log("Successfully deleted file from storage:", filePath);
+          return true;
+        }
+      } else {
+        console.warn("Could not extract file path from URL:", fileUrl);
+        console.log("URL parts:", fileUrl.split("/"));
+        return false;
+      }
+    } catch (e) {
+      console.error("Error deleting file from storage", e);
+      return false;
+    }
+  };
+
+  // -------------------- Batch File Deletion Helper --------------------
+  const deleteMultipleFilesFromStorage = async (fileUrls: string[]) => {
+    if (!fileUrls || fileUrls.length === 0) return { deleted: 0, total: 0 };
+
+    console.log(`Attempting to delete ${fileUrls.length} files:`, fileUrls);
+
+    // Extract all file paths
+    const filePaths: string[] = [];
+    for (const fileUrl of fileUrls) {
+      if (!fileUrl) continue;
+
+      let filePath = "";
+      if (fileUrl.includes("/storage/v1/object/public/AISPPUR/")) {
+        const parts = fileUrl.split("/storage/v1/object/public/AISPPUR/");
+        if (parts.length > 1) {
+          filePath = decodeURIComponent(parts[1]);
+        }
+      } else if (fileUrl.includes("AISPPUR")) {
+        const urlParts = fileUrl.split("/");
+        const storageIndex = urlParts.findIndex((part) => part === "AISPPUR");
+        if (storageIndex !== -1 && storageIndex < urlParts.length - 1) {
+          const rawPath = urlParts.slice(storageIndex + 1).join("/");
+          filePath = decodeURIComponent(rawPath);
+        }
+      }
+
+      if (filePath) {
+        filePaths.push(filePath);
+      }
+    }
+
+    if (filePaths.length > 0) {
+      console.log("Extracted file paths for batch deletion:", filePaths);
+      try {
+        const { error } = await supabase.storage.from("AISPPUR").remove(filePaths);
+        if (error) {
+          console.error("Failed to delete files in batch:", error);
+          // Fallback to individual deletion
+          let deletedCount = 0;
+          for (const fileUrl of fileUrls) {
+            const success = await deleteFileFromStorage(fileUrl);
+            if (success) deletedCount++;
+          }
+          return { deleted: deletedCount, total: fileUrls.length };
+        } else {
+          console.log("Successfully deleted all files in batch:", filePaths);
+          return { deleted: filePaths.length, total: fileUrls.length };
+        }
+      } catch (e) {
+        console.error("Error in batch deletion, falling back to individual:", e);
+        // Fallback to individual deletion
+        let deletedCount = 0;
+        for (const fileUrl of fileUrls) {
+          const success = await deleteFileFromStorage(fileUrl);
+          if (success) deletedCount++;
+        }
+        return { deleted: deletedCount, total: fileUrls.length };
+      }
+    }
+
+    return { deleted: 0, total: fileUrls.length };
+  };  // -------------------- Confirm Action --------------------
   const handleConfirmAction = async () => {
     if (!confirmActionType || !confirmTarget) return;
 
@@ -107,26 +215,90 @@ export default function PhotoGalleryPage() {
       }
 
       if (confirmActionType === "delete") {
-        const { id } = confirmTarget;
-        const { error } = await supabase
-          .from(Tables.PhotoGallery)
-          .delete()
-          .eq("id", id);
+        // If confirmTarget contains multiple ids -> bulk delete
+        if (Array.isArray((confirmTarget as any).ids)) {
+          const ids: string[] = (confirmTarget as any).ids.map((i: any) => String(i));
 
-        if (error) throw error;
+          // Fetch records to collect their image URLs
+          const { data: records, error: fetchError } = await supabase
+            .from(Tables.PhotoGallery)
+            .select('id, images')
+            .in('id', ids);
 
-        toast.success("Gallery deleted successfully");
+          if (fetchError) {
+            console.warn('Could not fetch records for deletion', fetchError);
+          } else {
+            console.log('Found records for bulk deletion:', records);
+            console.log('Total records to process:', records?.length || 0);
+          }
+
+          if (records) {
+            // Collect all image URLs for batch deletion
+            const allImageUrls: string[] = [];
+            for (const rec of records) {
+              console.log(`Processing record ${rec.id} with images:`, rec.images);
+              if (Array.isArray(rec.images)) {
+                allImageUrls.push(...rec.images);
+              }
+            }
+
+            if (allImageUrls.length > 0) {
+              const result = await deleteMultipleFilesFromStorage(allImageUrls);
+              console.log(`Bulk deletion result: ${result.deleted}/${result.total} images deleted`);
+            }
+          }
+
+          const { error } = await supabase
+            .from(Tables.PhotoGallery)
+            .delete()
+            .in('id', ids);
+
+          if (error) throw error;
+
+          toast.success('Selected galleries deleted');
+        } else {
+          // Single delete
+          const { id } = confirmTarget;
+
+          const { data: record, error: recError } = await supabase
+            .from(Tables.PhotoGallery)
+            .select('images')
+            .eq('id', id)
+            .single();
+
+          if (recError) {
+            console.warn('Could not fetch record for file deletion:', recError);
+          } else {
+            console.log('Found record for single deletion:', record);
+          }
+
+          if (record?.images && Array.isArray(record.images)) {
+            console.log('Deleting images for gallery:', record.images);
+            const result = await deleteMultipleFilesFromStorage(record.images);
+            console.log(`Single deletion result: ${result.deleted}/${result.total} images deleted`);
+          }
+
+          const { error } = await supabase
+            .from(Tables.PhotoGallery)
+            .delete()
+            .eq('id', id);
+
+          if (error) throw error;
+
+          toast.success('Gallery deleted successfully');
+        }
       }
 
       // Refresh data after action
       await fetchData();
     } catch (err) {
       console.error(err);
-      toast.error("Action failed");
+      toast.error('Action failed');
     } finally {
       setConfirmDialogOpen(false);
       setConfirmActionType(null);
       setConfirmTarget(null);
+      setSelectedRows([]);
     }
   };
 
@@ -136,27 +308,11 @@ export default function PhotoGalleryPage() {
       toast.error("No rows selected");
       return;
     }
-    try {
-      const ids = selectedRows.map((id) => String(id));
-      const { error } = await supabase
-        .from(Tables.PhotoGallery)
-        .delete()
-        .in("id", ids);
 
-      if (error) {
-        console.error("Failed to delete selected gallery items:", error);
-        toast.error("Failed to delete selected items");
-        return;
-      }
-
-      toast.success("Selected items deleted");
-      await fetchData();
-    } catch (error) {
-      console.error(error);
-      toast.error("Action failed");
-    } finally {
-      setSelectedRows([]);
-    }
+    // Open confirm dialog for bulk delete so user can confirm
+    setConfirmTarget({ ids: selectedRows.map((i) => String(i)) });
+    setConfirmActionType("delete");
+    setConfirmDialogOpen(true);
   };
 
   // -------------------- Edit Handler --------------------
