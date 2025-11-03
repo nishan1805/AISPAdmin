@@ -58,12 +58,23 @@ export const getColumns = (
     {
       key: "attachment",
       label: "Attachment",
-      render: (row: Update) => (
-        <div className="flex items-center text-slate-600">
-          <FileText size={16} className="mr-1" />
-          {row.attachment}
-        </div>
-      ),
+      render: (row: Update) => {
+        if (!row.attachment) {
+          return <span className="text-slate-400">No file</span>;
+        }
+
+        return (
+          <a
+            href={row.attachment}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+            title="Open file in new tab"
+          >
+            <FileText size={18} />
+          </a>
+        );
+      },
     },
     {
       key: "visibility",
@@ -94,7 +105,7 @@ export const getColumns = (
       render: (row: Update) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button>
               <MoreVertical size={18} />
             </Button>
           </DropdownMenuTrigger>

@@ -24,12 +24,20 @@ interface AddNewsMediaDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
+  initialData?: {
+    id?: string | number;
+    title?: string;
+    description?: string;
+    eventDate?: string;
+    source?: string;
+    images?: string[];
+  } | null;
 }
 
-export default function AddNewsMediaDialog({ open: controlledOpen, onOpenChange, onSuccess }: AddNewsMediaDialogProps) {
+export default function AddNewsMediaDialog({ open: controlledOpen, onOpenChange, onSuccess, initialData = null }: AddNewsMediaDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = typeof controlledOpen === "boolean" ? controlledOpen : internalOpen;
-  const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => {}) : setInternalOpen;
+  const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => { }) : setInternalOpen;
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<GalleryFormData>({ resolver: yupResolver(galleryFormSchema) });
 
@@ -108,7 +116,7 @@ export default function AddNewsMediaDialog({ open: controlledOpen, onOpenChange,
           />
 
           <DialogFooter className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => { reset(); setOpen(false); }} disabled={isSubmitting}>Cancel</Button>
+            <Button type="button" onClick={() => { reset(); setOpen(false); }} disabled={isSubmitting}>Cancel</Button>
             <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Creating..." : "Create News/Media"}</Button>
           </DialogFooter>
         </form>

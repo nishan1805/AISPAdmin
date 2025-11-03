@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import FileUpload from "@/components/shared/FileUpload"; 
+import FileUpload from "@/components/shared/FileUpload";
 import { updateFormSchema } from "@/lib/yup/schema.validation";
 import { supabase } from "@/supabase/client";
 import Tables from "@/lib/tables";
@@ -41,7 +41,7 @@ interface AddUpdateDialogProps {
 export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, onSuccess, initialData = null }: AddUpdateDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = typeof controlledOpen === "boolean" ? controlledOpen : internalOpen;
-  const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => {}) : setInternalOpen;
+  const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => { }) : setInternalOpen;
 
   const {
     register,
@@ -72,17 +72,18 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
       setExistingFileUrl(null);
       setRemoveExistingFile(false);
     }
-  }, [initialData]);
+  }, [initialData, setValue, reset]);
 
   const onSubmit = async (data: UpdateFormData) => {
     console.log("AddUpdateDialog onSubmit called", { initialData });
     try {
       let publicUrl: string | null = null;
+      let shouldDeleteOldFile = false;
 
       // If a new file was provided, upload it
       if (data.file) {
         const f = Array.isArray(data.file) ? data.file[0] : (data.file as any);
-        const filePath = `latest-update/${Date.now()}_${f.name}`;
+        const filePath = `latest-updates/${Date.now()}_${f.name}`;
 
         const { error: uploadError } = await supabase.storage
           .from("AISPPUR")
@@ -94,20 +95,37 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
           data: { publicUrl: url },
         } = supabase.storage.from("AISPPUR").getPublicUrl(filePath);
         publicUrl = url;
+        shouldDeleteOldFile = true; // Mark for deletion since we're replacing with new file
+      }
 
-        // if there's an existing file and user is replacing it, try to remove the previous storage object
-        if (existingFileUrl) {
-          try {
-            // attempt to derive path from public url
-            const urlParts = existingFileUrl.split("/");
-            const possiblePath = urlParts.slice(urlParts.indexOf("AISPPUR") + 1).join("/");
-            if (possiblePath) {
-              await supabase.storage.from("AISPPUR").remove([possiblePath]);
+      // Check if user explicitly removed the file (without uploading new one)
+      if (removeExistingFile && !data.file) {
+        shouldDeleteOldFile = true;
+        publicUrl = null; // Set to null to remove from database
+      }
+
+      // Delete old file from storage if needed
+      if (shouldDeleteOldFile && existingFileUrl) {
+        try {
+          // Extract path from public URL
+          const urlParts = existingFileUrl.split("/");
+          const storageIndex = urlParts.findIndex(part => part === "AISPPUR");
+          if (storageIndex !== -1 && storageIndex < urlParts.length - 1) {
+            const filePath = urlParts.slice(storageIndex + 1).join("/");
+            console.log("Attempting to delete old file:", filePath);
+
+            const { error: deleteError } = await supabase.storage
+              .from("AISPPUR")
+              .remove([filePath]);
+
+            if (deleteError) {
+              console.warn("Failed to delete old file:", deleteError);
+            } else {
+              console.log("Successfully deleted old file");
             }
-          } catch (e) {
-            // non-fatal
-            console.warn("Failed to delete previous file from storage", e);
           }
+        } catch (e) {
+          console.warn("Failed to delete previous file from storage", e);
         }
       }
 
@@ -118,7 +136,12 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
           title: data.title,
           description: data.description,
         };
-        if (publicUrl) payload.file = publicUrl;
+
+        // Only update file_url if we have a new file or explicitly removing
+        if (shouldDeleteOldFile) {
+          payload.file_url = publicUrl; // This will be null if removing file
+        }
+
         console.log("Update payload:", payload);
 
         const { error: updateError } = await supabase.from(Tables.LatestUpdates).update(payload).eq("id", initialData.id);
@@ -132,7 +155,7 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
           {
             title: data.title,
             description: data.description,
-            file: publicUrl,
+            file_url: publicUrl,
             visibility: true,
             status: LatestUpdate.New,
           },
@@ -142,11 +165,11 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
         toast.success("Update published successfully!");
       }
 
-  reset();
-  setExistingFileUrl(null);
-  setRemoveExistingFile(false);
-  setOpen(false);
-  if (onSuccess) onSuccess();
+      reset();
+      setExistingFileUrl(null);
+      setRemoveExistingFile(false);
+      setOpen(false);
+      if (onSuccess) onSuccess();
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
     }
@@ -197,8 +220,16 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
             <div className="space-y-2">
               <div className="text-sm text-slate-700">Existing file:</div>
               <a href={existingFileUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline">View file</a>
-              <div>
-                <Button variant="outline" size="sm" onClick={() => setRemoveExistingFile(true)}>Replace file</Button>
+              <div className="flex gap-2">
+                <Button onClick={() => setRemoveExistingFile(true)}>Replace file</Button>
+                <Button
+                  onClick={() => {
+                    setRemoveExistingFile(true);
+                    setValue("file", null as any);
+                  }}
+                >
+                  Remove file
+                </Button>
               </div>
             </div>
           ) : (
@@ -218,8 +249,6 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
               {existingFileUrl && removeExistingFile && (
                 <div>
                   <Button
-                    variant="ghost"
-                    size="sm"
                     onClick={() => {
                       // cancel replacing file: revert to existing file and clear any selected file
                       setRemoveExistingFile(false);
@@ -237,7 +266,6 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
           <DialogFooter className="flex justify-end gap-3 pt-4">
             <Button
               type="button"
-              variant="outline"
               onClick={() => {
                 reset();
                 setOpen(false);
@@ -258,8 +286,8 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
                   ? "Updating..."
                   : "Publishing..."
                 : initialData && initialData.id
-                ? "Update"
-                : "Publish"}
+                  ? "Update"
+                  : "Publish"}
             </Button>
           </DialogFooter>
         </form>

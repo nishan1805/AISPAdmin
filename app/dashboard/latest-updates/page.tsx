@@ -87,6 +87,33 @@ export default function LatestUpdatesPage() {
     setConfirmDialogOpen(true);
   };
 
+  // -------------------- File Deletion Helper --------------------
+  const deleteFileFromStorage = async (fileUrl: string): Promise<void> => {
+    if (!fileUrl) return;
+
+    try {
+      // Extract path from public URL
+      const urlParts = fileUrl.split("/");
+      const storageIndex = urlParts.findIndex(part => part === "AISPPUR");
+      if (storageIndex !== -1 && storageIndex < urlParts.length - 1) {
+        const filePath = urlParts.slice(storageIndex + 1).join("/");
+        console.log("Attempting to delete file:", filePath);
+
+        const { error: deleteError } = await supabase.storage
+          .from("AISPPUR")
+          .remove([filePath]);
+
+        if (deleteError) {
+          console.warn("Failed to delete file:", deleteError);
+        } else {
+          console.log("Successfully deleted file from storage");
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to delete file from storage", e);
+    }
+  };
+
   // -------------------- Confirm Action --------------------
   const handleConfirmAction = async () => {
     if (!confirmActionType || !confirmTarget) return;
@@ -107,6 +134,24 @@ export default function LatestUpdatesPage() {
 
       if (confirmActionType === "delete") {
         const { id } = confirmTarget;
+
+        // First, get the record to retrieve the file URL
+        const { data: record, error: fetchError } = await supabase
+          .from(Tables.LatestUpdates)
+          .select("file_url")
+          .eq("id", id)
+          .single();
+
+        if (fetchError) {
+          console.warn("Could not fetch record for file deletion:", fetchError);
+        }
+
+        // Delete the associated file from storage if it exists
+        if (record?.file_url) {
+          await deleteFileFromStorage(record.file_url);
+        }
+
+        // Then delete the database record
         const { error } = await supabase
           .from(Tables.LatestUpdates)
           .delete()
@@ -137,6 +182,27 @@ export default function LatestUpdatesPage() {
     }
     try {
       const ids = selectedRows.map((id) => String(id));
+
+      // First, get all records to retrieve their file URLs
+      const { data: records, error: fetchError } = await supabase
+        .from(Tables.LatestUpdates)
+        .select("id, file_url")
+        .in("id", ids);
+
+      if (fetchError) {
+        console.warn("Could not fetch records for file deletion:", fetchError);
+      }
+
+      // Delete associated files from storage
+      if (records) {
+        for (const record of records) {
+          if (record.file_url) {
+            await deleteFileFromStorage(record.file_url);
+          }
+        }
+      }
+
+      // Then delete the database records
       const { error } = await supabase
         .from(Tables.LatestUpdates)
         .delete()
@@ -179,7 +245,7 @@ export default function LatestUpdatesPage() {
         title: full.title ?? row.title,
         description: full.description ?? "",
         fileUrl:
-          full.file ?? full.file_url ?? full.attachment ?? row.attachment ?? "",
+          full.file_url ?? full.file ?? full.attachment_url ?? row.attachment ?? "",
       };
 
       setEditTarget(initial);
@@ -227,29 +293,29 @@ export default function LatestUpdatesPage() {
             confirmActionType === "delete"
               ? "Do you want to delete this item?"
               : confirmTarget?.value
-              ? "Hide this item from the website?"
-              : "Show this item on the website?"
+                ? "Hide this item from the website?"
+                : "Show this item on the website?"
           }
           description={
             confirmActionType === "delete"
               ? "This cannot be undone"
               : confirmTarget?.value
-              ? "Users will no longer see it"
-              : "Users will see it on the website"
+                ? "Users will no longer see it"
+                : "Users will see it on the website"
           }
           confirmLabel={
             confirmActionType === "delete"
               ? "Delete"
               : confirmTarget?.value
-              ? "Hide"
-              : "Show"
+                ? "Hide"
+                : "Show"
           }
           variant={
             confirmActionType === "delete"
               ? "danger"
               : confirmTarget?.value
-              ? "danger"
-              : "success"
+                ? "danger"
+                : "success"
           }
           onConfirm={handleConfirmAction}
         />
