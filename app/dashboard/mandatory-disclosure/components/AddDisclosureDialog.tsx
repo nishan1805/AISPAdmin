@@ -51,7 +51,7 @@ export default function AddDisclosureDialog({
     typeof controlledOpen === "boolean" ? controlledOpen : internalOpen;
   const setOpen =
     typeof controlledOpen === "boolean"
-      ? onOpenChange ?? (() => {})
+      ? onOpenChange ?? (() => { })
       : setInternalOpen;
 
   const {
@@ -121,7 +121,7 @@ export default function AddDisclosureDialog({
           title: data.title,
           description: data.description,
         };
-        if (publicUrl) payload.file = publicUrl;
+        if (publicUrl) payload.file_url = publicUrl;
 
         const { error: updateErr } = await supabase
           .from(Tables.MandatoryDisclosure)
@@ -282,8 +282,8 @@ export default function AddDisclosureDialog({
                   ? "Updating..."
                   : "Uploading..."
                 : initialData && initialData.id
-                ? "Update"
-                : "Upload"}
+                  ? "Update"
+                  : "Upload"}
             </Button>
           </DialogFooter>
         </form>

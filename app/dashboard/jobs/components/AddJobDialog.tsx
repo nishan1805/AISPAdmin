@@ -14,6 +14,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/supabase/client";
 import Tables from "@/lib/tables";
@@ -22,9 +29,10 @@ import * as yupLib from "yup";
 const jobSchema = yupLib.object({
   title: yupLib.string().required("Title is required"),
   department: yupLib.string().required("Department is required"),
-  postedDate: yupLib.string().required("Posted date is required"),
+  subject: yupLib.string().required("Subject is required"),
+  description: yupLib.string().optional(),
   lastDateToApply: yupLib.string().required("Last date to apply is required"),
-  jobType: yupLib.string().required("Job type is required"),
+  jobType: yupLib.string().oneOf(["Regular", "Part-Time", "Guest", "Contract"], "Please select a valid job type").required("Job type is required"),
 });
 
 type JobForm = yupLib.InferType<typeof jobSchema>;
@@ -37,9 +45,9 @@ interface AddJobDialogProps {
     id?: string | number;
     title?: string;
     department?: string;
-    jobType?: string;
+    subject?: string;
     description?: string;
-    qualifications?: string;
+    jobType?: string;
     lastDateToApply?: string;
   } | null;
 }
@@ -49,14 +57,18 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
   const open = typeof controlledOpen === "boolean" ? controlledOpen : internalOpen;
   const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => { }) : setInternalOpen;
 
-  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<JobForm>({ resolver: yupResolver(jobSchema) });
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<JobForm>({ resolver: yupResolver(jobSchema) });
+
+  const selectedJobType = watch("jobType");
 
   // Prefill form when initialData changes
   React.useEffect(() => {
     if (initialData) {
       if (initialData.title) setValue("title", initialData.title);
       if (initialData.department) setValue("department", initialData.department);
-      if (initialData.jobType) setValue("jobType", initialData.jobType);
+      if (initialData.subject) setValue("subject", initialData.subject);
+      if (initialData.description) setValue("description", initialData.description);
+      if (initialData.jobType) setValue("jobType", initialData.jobType as any);
       if (initialData.lastDateToApply) setValue("lastDateToApply", initialData.lastDateToApply);
     } else {
       reset();
@@ -72,7 +84,8 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
           .update({
             title: data.title,
             department: data.department,
-            posted_date: data.postedDate,
+            subject: data.subject,
+            description: data.description,
             last_date_to_apply: data.lastDateToApply,
             job_type: data.jobType,
           })
@@ -86,7 +99,8 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
           {
             title: data.title,
             department: data.department,
-            posted_date: data.postedDate,
+            subject: data.subject,
+            description: data.description,
             last_date_to_apply: data.lastDateToApply,
             job_type: data.jobType,
             status: "Open",
@@ -115,9 +129,15 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
           <div>
-            <Label className="text-sm">Title / Job Role</Label>
+            <Label className="text-sm">Job Title</Label>
             <Input placeholder="Job title" {...register("title")} />
             {errors.title && <p className="text-red-500 text-sm">{errors.title.message}</p>}
+          </div>
+
+          <div>
+            <Label className="text-sm">Subject</Label>
+            <Input placeholder="Subject" {...register("subject")} />
+            {errors.subject && <p className="text-red-500 text-sm">{errors.subject.message}</p>}
           </div>
 
           <div>
@@ -127,9 +147,8 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
           </div>
 
           <div>
-            <Label className="text-sm">Posted Date</Label>
-            <Input type="date" {...register("postedDate")} />
-            {errors.postedDate && <p className="text-red-500 text-sm">{errors.postedDate.message}</p>}
+            <Label className="text-sm">Description (Optional)</Label>
+            <Textarea placeholder="Job description..." {...register("description")} className="min-h-[80px]" />
           </div>
 
           <div>
@@ -140,7 +159,20 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
 
           <div>
             <Label className="text-sm">Job Type</Label>
-            <Input placeholder="Job Type" {...register("jobType")} />
+            <Select
+              value={selectedJobType || ""}
+              onValueChange={(value) => setValue("jobType", value as any, { shouldValidate: true })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select job type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Regular">Regular</SelectItem>
+                <SelectItem value="Part-Time">Part-Time</SelectItem>
+                <SelectItem value="Guest">Guest</SelectItem>
+                <SelectItem value="Contract">Contract</SelectItem>
+              </SelectContent>
+            </Select>
             {errors.jobType && <p className="text-red-500 text-sm">{errors.jobType.message}</p>}
           </div>
 
