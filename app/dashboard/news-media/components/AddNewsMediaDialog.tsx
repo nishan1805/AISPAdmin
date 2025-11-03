@@ -47,12 +47,14 @@ export default function AddNewsMediaDialog({ open: controlledOpen, onOpenChange,
     try {
       // upload each file to AISPPUR under a news-media folder
       const uploadedUrls: string[] = [];
-      for (const file of data.files) {
-        const filePath = `news-media/${Date.now()}_${file.name}`;
-        const { error: uploadError } = await supabase.storage.from("AISPPUR").upload(filePath, file);
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from("AISPPUR").getPublicUrl(filePath);
-        uploadedUrls.push(publicUrl);
+      if (data.files && data.files.length > 0) {
+        for (const file of data.files) {
+          const filePath = `news-media/${Date.now()}_${file.name}`;
+          const { error: uploadError } = await supabase.storage.from("AISPPUR").upload(filePath, file);
+          if (uploadError) throw uploadError;
+          const { data: { publicUrl } } = supabase.storage.from("AISPPUR").getPublicUrl(filePath);
+          uploadedUrls.push(publicUrl);
+        }
       }
 
       // insert news media

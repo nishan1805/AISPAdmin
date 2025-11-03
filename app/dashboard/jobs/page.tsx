@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { DataTable } from "@/components/ui/data-table";
 import FilterBar from "./components/FilterBar";
 import { getJobColumns, Job } from "./components/columns";
@@ -13,6 +14,7 @@ import ConfirmActionDialog from "@/components/shared/ConfirmActionDialog";
 type ActionType = "delete" | "visibility" | null;
 
 export default function JobsPage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -32,33 +34,48 @@ export default function JobsPage() {
   const fetchData = async () => {
     setLoading(true);
 
-    const from = (page - 1) * rowsPerPage;
-    const to = from + rowsPerPage - 1;
-
-    const { data: rows, error, count } = await supabase
+    let query = supabase
       .from(Tables.Jobs)
       .select("*", { count: "exact" })
-      .order("created_at", { ascending: false })
-      .range(from, to);
+      .order("created_at", { ascending: false });
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      query = query.or(`title.ilike.%${searchQuery}%,subject.ilike.%${searchQuery}%`);
+    }
+
+    const from = (page - 1) * rowsPerPage;
+    const to = from + rowsPerPage - 1;
+    const { data: rows, error, count } = await query.range(from, to);
 
     if (error) {
       console.error("Failed to fetch jobs:", error);
       toast.error("Failed to fetch jobs");
       setData([]);
     } else {
-      setData(
-        (rows || []).map((r: any, idx: number) => ({
-          id: String(r.id ?? idx),
-          jobId: r.job_id ?? r.id ?? "",
-          title: r.title ?? "",
-          department: r.department ?? "",
-          postedDate: r.posted_date ?? "",
-          lastDateToApply: r.last_date_to_apply ?? "",
-          jobType: r.job_type ?? "",
-          status: r.status ?? "Open",
-          visibility: !!r.visibility,
-        }))
+      // Fetch applicants count for each job
+      const jobsWithCounts = await Promise.all(
+        (rows || []).map(async (job: any) => {
+          const { count: applicantsCount } = await supabase
+            .from("job_applications")
+            .select("*", { count: "exact", head: true })
+            .eq("job_id", job.id);
+
+          return {
+            id: String(job.id ?? 0),
+            jobId: job.job_id ?? job.id ?? "",
+            title: job.title ?? "",
+            subject: job.subject ?? "",
+            lastDateToApply: job.last_date_to_apply ?? "",
+            jobType: job.job_type ?? "",
+            status: job.status ?? "Open",
+            visibility: !!job.visibility,
+            applicantsCount: applicantsCount || 0,
+          };
+        })
       );
+
+      setData(jobsWithCounts);
     }
 
     if (count !== null && count !== undefined) setTotalCount(count);
@@ -99,16 +116,28 @@ export default function JobsPage() {
 
         const { error } = await supabase
           .from(Tables.Jobs)
-          .update({ visibility: !value })
+          .update({ visibility: value })
           .eq("id", id);
 
         if (error) throw error;
 
-        toast.success(!value ? "Job made visible" : "Job hidden");
+        toast.success(value ? "Job made visible" : "Job hidden");
       }
 
       if (confirmActionType === "delete") {
         const { id } = confirmTarget;
+
+        // First, get all applications for this job to clean up their files
+        const { data: applications, error: fetchError } = await supabase
+          .from("job_applications")
+          .select("attachment_url")
+          .eq("job_id", id);
+
+        if (fetchError) {
+          console.warn("Could not fetch applications for file cleanup:", fetchError);
+        }
+
+        // Delete the job (this will cascade delete applications due to foreign key constraint)
         const { error } = await supabase
           .from(Tables.Jobs)
           .delete()
@@ -116,7 +145,44 @@ export default function JobsPage() {
 
         if (error) throw error;
 
-        toast.success("Job deleted successfully");
+        // Clean up application files from storage
+        if (applications && applications.length > 0) {
+          const filesToDelete: string[] = [];
+
+          applications.forEach((app) => {
+            if (app.attachment_url) {
+              try {
+                const fileUrl = app.attachment_url;
+                const urlParts = fileUrl.split("/");
+                const bucketIndex = urlParts.findIndex((part: string) => part === "AISPPUR");
+
+                if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
+                  const filePath = urlParts.slice(bucketIndex + 1).join("/");
+                  const decodedPath = decodeURIComponent(filePath);
+                  filesToDelete.push(decodedPath);
+                }
+              } catch (e) {
+                console.warn("Could not parse file URL:", app.attachment_url);
+              }
+            }
+          });
+
+          if (filesToDelete.length > 0) {
+            try {
+              const { error: storageError } = await supabase.storage
+                .from("AISPPUR")
+                .remove(filesToDelete);
+
+              if (storageError) {
+                console.warn("Some application files could not be deleted from storage:", storageError);
+              }
+            } catch (storageErr) {
+              console.warn("Could not delete application files from storage:", storageErr);
+            }
+          }
+        }
+
+        toast.success("Job and all applications deleted successfully");
       }
 
       // Refresh data after action
@@ -137,8 +203,21 @@ export default function JobsPage() {
       toast.error("No rows selected");
       return;
     }
+
     try {
       const ids = selectedRows.map((id) => String(id));
+
+      // First, get all applications for these jobs to clean up their files
+      const { data: applications, error: fetchError } = await supabase
+        .from("job_applications")
+        .select("attachment_url")
+        .in("job_id", ids);
+
+      if (fetchError) {
+        console.warn("Could not fetch applications for file cleanup:", fetchError);
+      }
+
+      // Delete the jobs (this will cascade delete applications due to foreign key constraint)
       const { error } = await supabase
         .from(Tables.Jobs)
         .delete()
@@ -150,7 +229,44 @@ export default function JobsPage() {
         return;
       }
 
-      toast.success("Selected items deleted");
+      // Clean up application files from storage
+      if (applications && applications.length > 0) {
+        const filesToDelete: string[] = [];
+
+        applications.forEach((app) => {
+          if (app.attachment_url) {
+            try {
+              const fileUrl = app.attachment_url;
+              const urlParts = fileUrl.split("/");
+              const bucketIndex = urlParts.findIndex((part: string) => part === "AISPPUR");
+
+              if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
+                const filePath = urlParts.slice(bucketIndex + 1).join("/");
+                const decodedPath = decodeURIComponent(filePath);
+                filesToDelete.push(decodedPath);
+              }
+            } catch (e) {
+              console.warn("Could not parse file URL:", app.attachment_url);
+            }
+          }
+        });
+
+        if (filesToDelete.length > 0) {
+          try {
+            const { error: storageError } = await supabase.storage
+              .from("AISPPUR")
+              .remove(filesToDelete);
+
+            if (storageError) {
+              console.warn("Some application files could not be deleted from storage:", storageError);
+            }
+          } catch (storageErr) {
+            console.warn("Could not delete application files from storage:", storageErr);
+          }
+        }
+      }
+
+      toast.success("Selected jobs and all applications deleted successfully");
       await fetchData();
     } catch (error) {
       console.error(error);
@@ -179,10 +295,9 @@ export default function JobsPage() {
       const initial = {
         id: full.id,
         title: full.title ?? row.title,
-        department: full.department ?? row.department,
-        jobType: full.job_type ?? row.jobType,
+        subject: full.subject ?? row.subject,
         description: full.description ?? "",
-        qualifications: full.qualifications ?? "",
+        jobType: full.job_type ?? row.jobType,
         lastDateToApply: full.last_date_to_apply ?? row.lastDateToApply,
       };
 
@@ -195,10 +310,15 @@ export default function JobsPage() {
     }
   };
 
+  // -------------------- View Applications Handler --------------------
+  const handleViewApplications = (row: Job) => {
+    router.push(`/dashboard/jobs/${row.id}/applications`);
+  };
+
   // -------------------- Lifecycle --------------------
   useEffect(() => {
     fetchData();
-  }, [page, rowsPerPage]);
+  }, [page, rowsPerPage, searchQuery]);
 
   // -------------------- JSX --------------------
   return (
@@ -231,35 +351,35 @@ export default function JobsPage() {
             confirmActionType === "delete"
               ? "Do you want to delete this job?"
               : confirmTarget?.value
-                ? "Hide this job from the website?"
-                : "Show this job on the website?"
+                ? "Show this job on the website?"
+                : "Hide this job from the website?"
           }
           description={
             confirmActionType === "delete"
               ? "This cannot be undone"
               : confirmTarget?.value
-                ? "Users will no longer see it"
-                : "Users will see it on the website"
+                ? "Users will see it on the website"
+                : "Users will no longer see it"
           }
           confirmLabel={
             confirmActionType === "delete"
               ? "Delete"
               : confirmTarget?.value
-                ? "Hide"
-                : "Show"
+                ? "Show"
+                : "Hide"
           }
           variant={
             confirmActionType === "delete"
               ? "danger"
               : confirmTarget?.value
-                ? "danger"
-                : "success"
+                ? "success"
+                : "danger"
           }
           onConfirm={handleConfirmAction}
         />
 
         <DataTable
-          columns={getJobColumns(handleToggleVisibility, handleDelete, handleEdit)}
+          columns={getJobColumns(handleToggleVisibility, handleDelete, handleEdit, handleViewApplications)}
           data={data}
           totalRecords={totalCount}
           page={page}
@@ -278,4 +398,3 @@ export default function JobsPage() {
     </div>
   );
 }
-

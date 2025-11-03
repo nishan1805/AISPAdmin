@@ -122,6 +122,20 @@ export default function MandatoryDisclosurePage() {
     if (!deleteTargetId) return;
 
     try {
+      // First get the file URL to delete from storage
+      const { data: record, error: fetchError } = await supabase
+        .from(Tables.MandatoryDisclosure)
+        .select("file_url")
+        .eq("id", deleteTargetId)
+        .single();
+
+      if (fetchError) {
+        console.error("Failed to fetch record for deletion:", fetchError);
+        toast.error("Failed to fetch record for deletion");
+        return;
+      }
+
+      // Delete the database record
       const { error } = await supabase
         .from(Tables.MandatoryDisclosure)
         .delete()
@@ -131,6 +145,30 @@ export default function MandatoryDisclosurePage() {
         console.error("Failed to delete disclosure:", error);
         toast.error("Failed to delete disclosure");
         return;
+      }
+
+      // Delete file from storage if exists
+      if (record?.file_url) {
+        try {
+          const fileUrl = record.file_url;
+          const urlParts = fileUrl.split("/");
+          const bucketIndex = urlParts.findIndex((part: string) => part === "AISPPUR");
+
+          if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
+            const filePath = urlParts.slice(bucketIndex + 1).join("/");
+            const decodedPath = decodeURIComponent(filePath);
+
+            const { error: storageError } = await supabase.storage
+              .from("AISPPUR")
+              .remove([decodedPath]);
+
+            if (storageError) {
+              console.warn("Failed to delete file from storage:", storageError);
+            }
+          }
+        } catch (storageErr) {
+          console.warn("Could not delete file from storage:", storageErr);
+        }
       }
 
       toast.success("Disclosure deleted");
@@ -151,6 +189,20 @@ export default function MandatoryDisclosurePage() {
 
     try {
       const ids = selectedRows.map((id) => String(id));
+
+      // First get all file URLs to delete from storage
+      const { data: records, error: fetchError } = await supabase
+        .from(Tables.MandatoryDisclosure)
+        .select("file_url")
+        .in("id", ids);
+
+      if (fetchError) {
+        console.error("Failed to fetch records for bulk deletion:", fetchError);
+        toast.error("Failed to fetch records for deletion");
+        return;
+      }
+
+      // Delete the database records
       const { error } = await supabase
         .from(Tables.MandatoryDisclosure)
         .delete()
@@ -160,6 +212,43 @@ export default function MandatoryDisclosurePage() {
         console.error("Failed to delete selected disclosures:", error);
         toast.error("Failed to delete selected disclosures");
         return;
+      }
+
+      // Delete files from storage
+      if (records && records.length > 0) {
+        const filesToDelete: string[] = [];
+
+        records.forEach((record) => {
+          if (record.file_url) {
+            try {
+              const fileUrl = record.file_url;
+              const urlParts = fileUrl.split("/");
+              const bucketIndex = urlParts.findIndex((part: string) => part === "AISPPUR");
+
+              if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
+                const filePath = urlParts.slice(bucketIndex + 1).join("/");
+                const decodedPath = decodeURIComponent(filePath);
+                filesToDelete.push(decodedPath);
+              }
+            } catch (e) {
+              console.warn("Could not parse file URL:", record.file_url);
+            }
+          }
+        });
+
+        if (filesToDelete.length > 0) {
+          try {
+            const { error: storageError } = await supabase.storage
+              .from("AISPPUR")
+              .remove(filesToDelete);
+
+            if (storageError) {
+              console.warn("Some files could not be deleted from storage:", storageError);
+            }
+          } catch (storageErr) {
+            console.warn("Could not delete files from storage:", storageErr);
+          }
+        }
       }
 
       toast.success("Selected disclosures deleted");
@@ -192,12 +281,7 @@ export default function MandatoryDisclosurePage() {
           id: full.id,
           title: full.title ?? row.title,
           description: full.description ?? "",
-          fileUrl:
-            full.file ??
-            full.file_url ??
-            full.attachment ??
-            row.attachment ??
-            "",
+          fileUrl: full.file_url ?? row.attachment ?? "",
         };
 
         setEditTarget(initial);
