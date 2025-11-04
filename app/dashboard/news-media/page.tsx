@@ -108,12 +108,62 @@ export default function NewsMediaPage() {
 
       if (confirmActionType === "delete") {
         const { id } = confirmTarget;
+
+        // First, get the record to clean up any associated files
+        const { data: record, error: fetchError } = await supabase
+          .from(Tables.NewsMedia)
+          .select("images")
+          .eq("id", id)
+          .single();
+
+        if (fetchError) {
+          console.warn("Could not fetch record for file cleanup:", fetchError);
+        }
+
+        // Delete the record
         const { error } = await supabase
           .from(Tables.NewsMedia)
           .delete()
           .eq("id", id);
 
         if (error) throw error;
+
+        // Clean up associated files from storage
+        if (record && record.images && record.images.length > 0) {
+          const filesToDelete: string[] = [];
+
+          record.images.forEach((imageUrl: string) => {
+            if (imageUrl) {
+              try {
+                const fileUrl = imageUrl;
+                const urlParts = fileUrl.split("/");
+                const bucketIndex = urlParts.findIndex((part: string) => part === "AISPPUR");
+
+                if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
+                  const filePath = urlParts.slice(bucketIndex + 1).join("/");
+                  const decodedPath = decodeURIComponent(filePath);
+                  filesToDelete.push(decodedPath);
+                }
+              } catch (e) {
+                console.warn("Could not parse file URL:", imageUrl);
+              }
+            }
+          });
+
+          if (filesToDelete.length > 0) {
+            try {
+              const { error: storageError } = await supabase.storage
+                .from("AISPPUR")
+                .remove(filesToDelete);
+
+              if (storageError) {
+                console.warn("Some files could not be deleted from storage:", storageError);
+              }
+            } catch (storageErr) {
+              console.warn("Could not delete files from storage:", storageErr);
+            }
+          }
+        }
 
         toast.success("News item deleted successfully");
       }
@@ -138,6 +188,18 @@ export default function NewsMediaPage() {
     }
     try {
       const ids = selectedRows.map((id) => String(id));
+
+      // First, get all records to clean up any associated files
+      const { data: records, error: fetchError } = await supabase
+        .from(Tables.NewsMedia)
+        .select("images")
+        .in("id", ids);
+
+      if (fetchError) {
+        console.warn("Could not fetch records for file cleanup:", fetchError);
+      }
+
+      // Delete the records
       const { error } = await supabase
         .from(Tables.NewsMedia)
         .delete()
@@ -147,6 +209,47 @@ export default function NewsMediaPage() {
         console.error("Failed to delete selected news/media:", error);
         toast.error("Failed to delete selected items");
         return;
+      }
+
+      // Clean up associated files from storage
+      if (records && records.length > 0) {
+        const filesToDelete: string[] = [];
+
+        records.forEach((record) => {
+          if (record.images && record.images.length > 0) {
+            record.images.forEach((imageUrl: string) => {
+              if (imageUrl) {
+                try {
+                  const fileUrl = imageUrl;
+                  const urlParts = fileUrl.split("/");
+                  const bucketIndex = urlParts.findIndex((part: string) => part === "AISPPUR");
+
+                  if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
+                    const filePath = urlParts.slice(bucketIndex + 1).join("/");
+                    const decodedPath = decodeURIComponent(filePath);
+                    filesToDelete.push(decodedPath);
+                  }
+                } catch (e) {
+                  console.warn("Could not parse file URL:", imageUrl);
+                }
+              }
+            });
+          }
+        });
+
+        if (filesToDelete.length > 0) {
+          try {
+            const { error: storageError } = await supabase.storage
+              .from("AISPPUR")
+              .remove(filesToDelete);
+
+            if (storageError) {
+              console.warn("Some files could not be deleted from storage:", storageError);
+            }
+          } catch (storageErr) {
+            console.warn("Could not delete files from storage:", storageErr);
+          }
+        }
       }
 
       toast.success("Selected items deleted");

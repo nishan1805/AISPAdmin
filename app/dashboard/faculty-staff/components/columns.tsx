@@ -9,10 +9,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { render } from "react-dom";
 
 export type Staff = {
   id: string;
+  docId: string;
   image_url: string;
   name: string;
   designation: string;
@@ -27,15 +27,11 @@ export const getStaffColumns = (
 ) => [
     { key: "select", label: "" },
     {
-      key: "image_url", label: "Photo",
-      render: (row: Staff) => (
-        <img
-          src={row.image_url}
-          alt={row.name}
-          className="w-10 h-10 rounded-full object-cover"
-        />
-      ),
+      key: "serialNo",
+      label: "S.No.",
+      render: (_: Staff, index: number) => index + 1,
     },
+    { key: "docId", label: "Doc ID" },
     { key: "name", label: "Name" },
     { key: "designation", label: "Designation" },
     { key: "category", label: "Category" },
@@ -45,7 +41,9 @@ export const getStaffColumns = (
       render: (row: Staff) => (
         <Switch
           checked={row.visibility}
-          onCheckedChange={() => onToggleVisibility(row.id, row.visibility)}
+          onCheckedChange={(checked) => onToggleVisibility(row.id, checked)}
+          className={`${row.visibility ? "data-[state=checked]:bg-green-600" : "data-[state=unchecked]:bg-gray-300"
+            }`}
         />
       ),
     },
@@ -61,7 +59,6 @@ export const getStaffColumns = (
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => onEdit?.(row)}>Edit</DropdownMenuItem>
-            <DropdownMenuItem>View</DropdownMenuItem>
             <DropdownMenuItem
               className="text-red-600"
               onClick={() => onDelete?.(row.id)}
