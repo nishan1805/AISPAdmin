@@ -25,10 +25,16 @@ import { toast } from "sonner";
 import { supabase } from "@/supabase/client";
 import Tables from "@/lib/tables";
 import * as yupLib from "yup";
+import dynamic from "next/dynamic";
+
+// Dynamically import ReactQuill to avoid SSR issues
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+import "react-quill/dist/quill.snow.css";
 
 const jobSchema = yupLib.object({
   title: yupLib.string().required("Title is required"),
   subject: yupLib.string().required("Subject is required"),
+  department: yupLib.string().required("Department is required"),
   description: yupLib.string().optional(),
   lastDateToApply: yupLib.string().required("Last date to apply is required"),
   jobType: yupLib.string().oneOf(["Regular", "Part-Time", "Guest", "Contract"], "Please select a valid job type").required("Job type is required"),
@@ -44,6 +50,7 @@ interface AddJobDialogProps {
     id?: string | number;
     title?: string;
     subject?: string;
+    department?: string;
     description?: string;
     jobType?: string;
     lastDateToApply?: string;
@@ -55,6 +62,8 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
   const open = typeof controlledOpen === "boolean" ? controlledOpen : internalOpen;
   const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => { }) : setInternalOpen;
 
+  const [description, setDescription] = useState("");
+
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<JobForm>({ resolver: yupResolver(jobSchema) });
 
   const selectedJobType = watch("jobType");
@@ -64,26 +73,34 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
     if (initialData) {
       if (initialData.title) setValue("title", initialData.title);
       if (initialData.subject) setValue("subject", initialData.subject);
-      if (initialData.description) setValue("description", initialData.description);
+      if (initialData.department) setValue("department", initialData.department);
+      if (initialData.description) {
+        setDescription(initialData.description);
+        setValue("description", initialData.description);
+      }
       if (initialData.jobType) setValue("jobType", initialData.jobType as any);
       if (initialData.lastDateToApply) setValue("lastDateToApply", initialData.lastDateToApply);
     } else {
       reset();
+      setDescription("");
     }
   }, [initialData]);
 
   const onSubmit = async (data: JobForm) => {
     try {
+      const jobData = { ...data, description };
+
       if (initialData && initialData.id) {
         // Edit flow
         const { error: updateError } = await supabase
           .from(Tables.Jobs)
           .update({
-            title: data.title,
-            subject: data.subject,
-            description: data.description,
-            last_date_to_apply: data.lastDateToApply,
-            job_type: data.jobType,
+            title: jobData.title,
+            subject: jobData.subject,
+            department: jobData.department,
+            description: jobData.description,
+            last_date_to_apply: jobData.lastDateToApply,
+            job_type: jobData.jobType,
           })
           .eq("id", initialData.id);
 
@@ -93,11 +110,12 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
         // Create flow
         const { error: insertError } = await supabase.from(Tables.Jobs).insert([
           {
-            title: data.title,
-            subject: data.subject,
-            description: data.description,
-            last_date_to_apply: data.lastDateToApply,
-            job_type: data.jobType,
+            title: jobData.title,
+            subject: jobData.subject,
+            department: jobData.department,
+            description: jobData.description,
+            last_date_to_apply: jobData.lastDateToApply,
+            job_type: jobData.jobType,
             status: "Open",
             visibility: true,
           },
@@ -108,6 +126,7 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
       }
 
       reset();
+      setDescription("");
       setOpen(false);
       if (onSuccess) onSuccess();
     } catch (err: any) {
@@ -136,8 +155,32 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
           </div>
 
           <div>
+            <Label className="text-sm">Department</Label>
+            <Input placeholder="Department" {...register("department")} />
+            {errors.department && <p className="text-red-500 text-sm">{errors.department.message}</p>}
+          </div>
+
+          <div>
             <Label className="text-sm">Description (Optional)</Label>
-            <Textarea placeholder="Job description..." {...register("description")} className="min-h-[80px]" />
+            <div className="mt-1">
+              <ReactQuill
+                theme="snow"
+                value={description}
+                onChange={setDescription}
+                placeholder="Job description..."
+                className="bg-white"
+                style={{ minHeight: "120px" }}
+                modules={{
+                  toolbar: [
+                    [{ 'header': [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                    ['link'],
+                    ['clean']
+                  ],
+                }}
+              />
+            </div>
           </div>
 
           <div>
@@ -166,7 +209,7 @@ export default function AddJobDialog({ open: controlledOpen, onOpenChange, onSuc
           </div>
 
           <DialogFooter className="flex justify-end gap-3 pt-4">
-            <Button type="button" onClick={() => { reset(); setOpen(false); }} disabled={isSubmitting}>Cancel</Button>
+            <Button type="button" onClick={() => { reset(); setDescription(""); setOpen(false); }} disabled={isSubmitting}>Cancel</Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting
                 ? initialData && initialData.id
