@@ -21,7 +21,6 @@ export default function FilterBar({ onSearch, onAdd, onDeleteSelected }: FilterB
     <div className="p-6 border-b border-slate-200 flex items-center justify-between">
       <div className="flex items-center space-x-3">
         <Button
-          className="bg-blue-600 hover:bg-blue-700"
           onClick={() => {
             if (typeof (onAdd as any) === "function") onAdd!();
           }}

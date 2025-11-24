@@ -5,6 +5,7 @@ import { DataTable } from "@/components/ui/data-table";
 import FilterBar from "./components/FilterBar";
 import { getGalleryColumns, Photo } from "./components/columns";
 import AddGalleryDialog from "./components/AddGalleryDialog";
+import GalleryShowcaseModal from "./components/GalleryShowcaseModal";
 import { supabase } from "@/supabase/client";
 import Tables from "@/lib/tables";
 import { toast } from "sonner";
@@ -27,6 +28,9 @@ export default function PhotoGalleryPage() {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmActionType, setConfirmActionType] = useState<ActionType>(null);
   const [confirmTarget, setConfirmTarget] = useState<any | null>(null);
+
+  const [showcaseModalOpen, setShowcaseModalOpen] = useState(false);
+  const [selectedGallery, setSelectedGallery] = useState<Photo | null>(null);
 
   // -------------------- Fetch Data --------------------
   const fetchData = async () => {
@@ -348,6 +352,37 @@ export default function PhotoGalleryPage() {
     }
   };
 
+  // -------------------- View Gallery Handler --------------------
+  const handleViewGallery = async (row: Photo) => {
+    try {
+      const { data: full, error } = await supabase
+        .from(Tables.PhotoGallery)
+        .select("*")
+        .eq("id", row.id)
+        .single();
+
+      if (error) {
+        console.error("Failed to fetch gallery for viewing:", error);
+        toast.error("Failed to load gallery");
+        return;
+      }
+
+      const galleryData = {
+        ...row,
+        images: full.images ?? [],
+        title: full.title ?? row.title,
+        description: full.description ?? "",
+        eventDate: full.event_date ?? row.eventDate,
+      };
+
+      setSelectedGallery(galleryData);
+      setShowcaseModalOpen(true);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load gallery");
+    }
+  };
+
   // -------------------- Lifecycle --------------------
   useEffect(() => {
     fetchData();
@@ -411,8 +446,16 @@ export default function PhotoGalleryPage() {
           onConfirm={handleConfirmAction}
         />
 
+        <GalleryShowcaseModal
+          open={showcaseModalOpen}
+          onOpenChange={setShowcaseModalOpen}
+          gallery={selectedGallery}
+          onSuccess={fetchData}
+          tableName={Tables.PhotoGallery}
+        />
+
         <DataTable
-          columns={getGalleryColumns(handleToggleVisibility, handleDelete, handleEdit)}
+          columns={getGalleryColumns(handleToggleVisibility, handleDelete, handleEdit, handleViewGallery)}
           data={data}
           totalRecords={totalCount}
           page={page}
