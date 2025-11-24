@@ -16,6 +16,7 @@ export type Job = {
   jobId: string;
   title: string;
   subject: string;
+  department?: string;
   lastDateToApply: string;
   jobType: string;
   status: "Open" | "Closed";
