@@ -5,6 +5,7 @@ import { DataTable } from "@/components/ui/data-table";
 import FilterBar from "./components/FilterBar";
 import { getNewsMediaColumns, NewsItem } from "./components/columns";
 import AddNewsMediaDialog from "./components/AddNewsMediaDialog";
+import GalleryShowcaseModal from "../photo-gallery/components/GalleryShowcaseModal";
 import { supabase } from "@/supabase/client";
 import Tables from "@/lib/tables";
 import { toast } from "sonner";
@@ -27,6 +28,9 @@ export default function NewsMediaPage() {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmActionType, setConfirmActionType] = useState<ActionType>(null);
   const [confirmTarget, setConfirmTarget] = useState<any | null>(null);
+
+  const [showcaseModalOpen, setShowcaseModalOpen] = useState(false);
+  const [selectedNewsItem, setSelectedNewsItem] = useState<NewsItem | null>(null);
 
   // -------------------- Fetch Data --------------------
   const fetchData = async () => {
@@ -296,6 +300,38 @@ export default function NewsMediaPage() {
     }
   };
 
+  // -------------------- View News Item Handler --------------------
+  const handleViewNewsItem = async (row: NewsItem) => {
+    try {
+      const { data: full, error } = await supabase
+        .from(Tables.NewsMedia)
+        .select("*")
+        .eq("id", row.id)
+        .single();
+
+      if (error) {
+        console.error("Failed to fetch news item for viewing:", error);
+        toast.error("Failed to load news item");
+        return;
+      }
+
+      const newsItemData = {
+        ...row,
+        images: full.images ?? [],
+        title: full.title ?? row.title,
+        description: full.description ?? "",
+        eventDate: full.event_date ?? row.eventDate,
+        source: full.source ?? row.source,
+      };
+
+      setSelectedNewsItem(newsItemData);
+      setShowcaseModalOpen(true);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load news item");
+    }
+  };
+
   // -------------------- Lifecycle --------------------
   useEffect(() => {
     fetchData();
@@ -359,8 +395,16 @@ export default function NewsMediaPage() {
           onConfirm={handleConfirmAction}
         />
 
+        <GalleryShowcaseModal
+          open={showcaseModalOpen}
+          onOpenChange={setShowcaseModalOpen}
+          gallery={selectedNewsItem}
+          onSuccess={fetchData}
+          tableName={Tables.NewsMedia}
+        />
+
         <DataTable
-          columns={getNewsMediaColumns(handleToggleVisibility, handleDelete, handleEdit)}
+          columns={getNewsMediaColumns(handleToggleVisibility, handleDelete, handleEdit, handleViewNewsItem)}
           data={data}
           totalRecords={totalCount}
           page={page}

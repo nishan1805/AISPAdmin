@@ -26,6 +26,7 @@ export const getNewsMediaColumns = (
   onToggleVisibility: (id: string, value: boolean) => void,
   onDelete?: (id: string) => void,
   onEdit?: (row: NewsItem) => void,
+  onView?: (row: NewsItem) => void,
 ) => [
     { key: "select", label: "" },
     {
@@ -85,7 +86,7 @@ export const getNewsMediaColumns = (
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => { if (typeof onEdit === "function") onEdit(row); }}>Edit</DropdownMenuItem>
-            <DropdownMenuItem>View</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { if (typeof onView === "function") onView(row); }}>View</DropdownMenuItem>
             <DropdownMenuItem
               className="text-red-600"
               onClick={() => {

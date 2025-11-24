@@ -310,6 +310,41 @@ export default function AddNewsMediaDialog({ open: controlledOpen, onOpenChange,
                 maxSize={5 * 1024 * 1024}
                 disabled={isSubmitting}
               />
+
+              {/* Preview of newly selected images */}
+              {files && files.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">Selected images ({files.length}):</div>
+                  <div className="grid grid-cols-3 gap-2 max-h-32 overflow-y-auto">
+                    {files.slice(0, 6).map((file, index) => (
+                      <div key={index} className="relative">
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={`Selected image ${index + 1}`}
+                          className="w-full h-16 object-cover rounded border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newFiles = files.filter((_, i) => i !== index);
+                            setValue("files", newFiles as any, { shouldValidate: true });
+                          }}
+                          className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600"
+                          disabled={isSubmitting}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    {files.length > 6 && (
+                      <div className="w-full h-16 bg-slate-100 rounded border flex items-center justify-center text-xs text-slate-600">
+                        +{files.length - 6} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {existingImages.length > 0 && removeExistingImages && (
                 <div>
                   <Button

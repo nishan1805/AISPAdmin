@@ -48,13 +48,13 @@ export const updateFormSchema = yup.object({
   file: yup.mixed().test("file-required-if-create", function (value) {
     const isEdit = !!(this?.options as any)?.context?.isEdit;
     if (isEdit) return true; // optional in edit mode
-    // create mode: validate via pdfOrImageValidation
-    const validator = pdfOrImageValidation(5);
+    // create mode: validate via pdfFileValidation
+    const validator = pdfFileValidation(5);
     try {
       validator.validateSync(value);
       return true;
     } catch (e: any) {
-      return this.createError({ message: e?.message || "A valid file is required" });
+      return this.createError({ message: e?.message || "A valid PDF file is required" });
     }
   }),
 });

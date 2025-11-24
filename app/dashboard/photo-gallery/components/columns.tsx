@@ -26,6 +26,7 @@ export const getGalleryColumns = (
   onToggleVisibility: (id: string, value: boolean) => void,
   onDelete?: (id: string) => void,
   onEdit?: (row: Photo) => void,
+  onView?: (row: Photo) => void,
 ) => [
     { key: "select", label: "" },
     {
@@ -90,7 +91,7 @@ export const getGalleryColumns = (
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => { if (typeof onEdit === "function") onEdit(row); }}>Edit</DropdownMenuItem>
-            <DropdownMenuItem>View</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { if (typeof onView === "function") onView(row); }}>View</DropdownMenuItem>
             <DropdownMenuItem
               className="text-red-600"
               onClick={() => {

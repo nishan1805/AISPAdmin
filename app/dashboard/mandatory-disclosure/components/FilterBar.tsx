@@ -26,7 +26,6 @@ export default function FilterBar({
       {/* Left section */}
       <div className="flex items-center space-x-3">
         <Button
-          className="bg-blue-600 hover:bg-blue-700"
           onClick={() => {
             if (typeof onAdd === "function") onAdd();
           }}

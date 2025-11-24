@@ -83,9 +83,8 @@ export function DataTable<T extends { id: string | number }>({
               data.map((row, index) => (
                 <TableRow
                   key={row.id}
-                  className={`cursor-pointer hover:bg-blue-50 ${
-                    selectedRows.includes(row.id) ? "bg-blue-50" : ""
-                  }`}
+                  className={`cursor-pointer hover:bg-blue-50 ${selectedRows.includes(row.id) ? "bg-blue-50" : ""
+                    }`}
                 >
                   {columns.map((col) => (
                     <TableCell key={col.key as string}>
@@ -118,67 +117,69 @@ export function DataTable<T extends { id: string | number }>({
       </div>
 
       {/* Pagination Controls */}
-      <div className="flex flex-wrap justify-between items-center mt-4 gap-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <span className="text-sm">Total: {totalRecords}</span>
+      <div className="border-t border-slate-200 px-6 py-4 mt-4">
+        <div className="flex flex-wrap justify-between items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="text-sm text-slate-600">Total: {totalRecords}</span>
+            <div className="flex items-center gap-2">
+              <Select
+                value={String(rowsPerPage)}
+                onValueChange={(value) => onRowsPerPageChange(Number(value))}
+                disabled={totalRecords === 0}
+              >
+                <SelectTrigger className="w-[80px]">
+                  <SelectValue placeholder="Rows" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pageOptions.map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-sm text-slate-600">rows per page</span>
+            </div>
+          </div>
+
+          {/* Page Navigation */}
           <div className="flex items-center gap-2">
             <Select
-              value={String(rowsPerPage)}
-              onValueChange={(value) => onRowsPerPageChange(Number(value))}
-              disabled={totalRecords === 0}
+              value={String(page)}
+              onValueChange={(value) => onPageChange(Number(value))}
+              disabled={totalPages === 0}
             >
               <SelectTrigger className="w-[80px]">
-                <SelectValue placeholder="Rows" />
+                <SelectValue placeholder="Page" />
               </SelectTrigger>
               <SelectContent>
-                {pageOptions.map((size) => (
-                  <SelectItem key={size} value={String(size)}>
-                    {size}
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <SelectItem key={i + 1} value={String(i + 1)}>
+                    {i + 1}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <span className="text-sm">rows per page</span>
+            <span className="text-sm text-slate-600">of {totalPages}</span>
+
+            <Button
+              onClick={() => onPageChange(page - 1)}
+              disabled={page === 1}
+              size="icon"
+              variant="outline"
+            >
+              <ChevronLeft />
+            </Button>
+
+            <Button
+              onClick={() => onPageChange(page + 1)}
+              disabled={page === totalPages}
+              size="icon"
+              variant="outline"
+            >
+              <ChevronRight />
+            </Button>
           </div>
-        </div>
-
-        {/* Page Navigation */}
-        <div className="flex items-center gap-2">
-          <Select
-            value={String(page)}
-            onValueChange={(value) => onPageChange(Number(value))}
-            disabled={totalPages === 0}
-          >
-            <SelectTrigger className="w-[80px]">
-              <SelectValue placeholder="Page" />
-            </SelectTrigger>
-            <SelectContent>
-              {Array.from({ length: totalPages }, (_, i) => (
-                <SelectItem key={i + 1} value={String(i + 1)}>
-                  {i + 1}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <span className="text-sm">of {totalPages}</span>
-
-          <Button
-            onClick={() => onPageChange(page - 1)}
-            disabled={page === 1}
-            size="icon"
-            variant="outline"
-          >
-            <ChevronLeft />
-          </Button>
-
-          <Button
-            onClick={() => onPageChange(page + 1)}
-            disabled={page === totalPages}
-            size="icon"
-            variant="outline"
-          >
-            <ChevronRight />
-          </Button>
         </div>
       </div>
     </>

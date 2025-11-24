@@ -235,15 +235,15 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
           ) : (
             <div className="space-y-2">
               <FileUpload
-                label="Upload a file or drag and drop"
+                label="Upload a PDF file or drag and drop"
                 file={file ?? undefined}
                 onFileSelect={(selectedFile) => {
                   const f = Array.isArray(selectedFile) ? selectedFile[0] : selectedFile;
                   if (f) setValue("file", f, { shouldValidate: true });
                 }}
                 error={errors.file?.message}
-                accept="application/pdf, image/*"
-                maxSize={10 * 1024 * 1024}
+                accept="application/pdf"
+                maxSize={5 * 1024 * 1024}
                 disabled={isSubmitting}
               />
               {existingFileUrl && removeExistingFile && (
