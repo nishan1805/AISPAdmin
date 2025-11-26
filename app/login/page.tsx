@@ -142,33 +142,14 @@ export default function LoginPage() {
             )}
 
             {/* Remember Me + Forgot Password */}
-            {/* <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Controller
-                  name="rememberMe"
-                  control={control}
-                  render={({ field }) => (
-                    <Checkbox
-                      id="rememberMe"
-                      checked={field.value}
-                      onCheckedChange={(checked) => field.onChange(!!checked)}
-                    />
-                  )}
-                />
-                <label
-                  htmlFor="rememberMe"
-                  className="text-sm text-slate-600 cursor-pointer"
-                >
-                  Remember Me
-                </label>
-              </div>
+            <div className="flex items-center justify-end">
               <a
-                href="#"
+                href="/forgot-password"
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
                 Forgot Password?
               </a>
-            </div> */}
+            </div>
 
             {/* Submit Button */}
             <Button

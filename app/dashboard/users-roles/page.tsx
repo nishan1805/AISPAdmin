@@ -9,6 +9,7 @@ import { supabase } from "@/supabase/client";
 import Tables from "@/lib/tables";
 import { toast } from "sonner";
 import ConfirmActionDialog from "@/components/shared/ConfirmActionDialog";
+import { useUserPermissions } from "@/hooks/use-user-permissions";
 
 type ActionType = "delete" | "status" | null;
 
@@ -28,6 +29,8 @@ export default function UsersRolesPage() {
   const [confirmActionType, setConfirmActionType] = useState<ActionType>(null);
   const [confirmTarget, setConfirmTarget] = useState<any | null>(null);
 
+  const { permissions, loading: permissionsLoading } = useUserPermissions();
+
   // -------------------- Fetch Data --------------------
   const fetchData = async () => {
     setLoading(true);
@@ -46,17 +49,21 @@ export default function UsersRolesPage() {
       toast.error("Failed to fetch users");
       setData([]);
     } else {
-      setData(
-        (rows || []).map((r: any, idx: number) => ({
-          id: String(r.id ?? idx),
-          userId: r.user_id ?? r.id ?? "",
-          name: r.name ?? "",
-          role: r.role ?? "",
-          department: r.department ?? "",
-          accessLevel: r.access_level ?? "",
-          status: r.status ?? "Active",
-        }))
-      );
+      // Use data from users_roles table
+      const usersWithData = (rows || []).map((user: any) => ({
+        id: String(user.id ?? 0),
+        userId: user.user_id ?? user.id ?? "",
+        name: user.name ?? "",
+        email: user.email ?? "",
+        role: user.role ?? "",
+        department: user.department ?? "",
+        accessLevel: user.access_level ?? "",
+        status: user.status ?? "Active",
+        lastSignIn: null,
+        emailConfirmed: false,
+      }));
+
+      setData(usersWithData);
     }
 
     if (count !== null && count !== undefined) setTotalCount(count);
@@ -177,11 +184,12 @@ export default function UsersRolesPage() {
 
       const initial = {
         id: full.id,
+        user_id: full.user_id,
         name: full.name ?? row.name,
         role: full.role ?? row.role,
         department: full.department ?? row.department,
         accessLevel: full.access_level ?? row.accessLevel,
-        email: full.email ?? "",
+        email: row.email ?? full.email ?? "",
       };
 
       setEditTarget(initial);
@@ -199,6 +207,22 @@ export default function UsersRolesPage() {
   }, [page, rowsPerPage]);
 
   // -------------------- JSX --------------------
+  if (permissionsLoading) {
+    return (
+      <div className="p-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-slate-800">Users & Roles</h1>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8">
+          <div className="flex items-center justify-center">
+            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="ml-3 text-slate-600">Loading permissions...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -208,8 +232,9 @@ export default function UsersRolesPage() {
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
         <FilterBar
           onSearch={setSearchQuery}
-          onAdd={() => setIsDialogOpen(true)}
-          onDeleteSelected={deleteSelected}
+          onAdd={permissions?.canManageUsers ? () => setIsDialogOpen(true) : undefined}
+          onDeleteSelected={permissions?.canDelete ? deleteSelected : undefined}
+          permissions={permissions}
         />
 
         <AddUserDialog
@@ -257,7 +282,7 @@ export default function UsersRolesPage() {
         />
 
         <DataTable
-          columns={getUserRoleColumns(handleToggleStatus, handleDelete, handleEdit)}
+          columns={getUserRoleColumns(handleToggleStatus, handleDelete, handleEdit, permissions)}
           data={data}
           totalRecords={totalCount}
           page={page}
