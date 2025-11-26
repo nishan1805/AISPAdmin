@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Bell } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -12,10 +12,39 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import Tables from '@/lib/tables';
+
+interface UserData {
+  email: string;
+  access_level: string;
+}
 
 export function Header() {
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const [userData, setUserData] = useState<UserData | null>(null);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from(Tables.UsersRoles)
+        .select('email, access_level')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user data:', error);
+        return;
+      }
+      setUserData(data);
+    };
+
+    fetchUserData();
+  }, [user]);
 
   const handleLogout = async () => {
     await signOut();
@@ -34,10 +63,6 @@ export function Header() {
       </div>
 
       <div className="flex items-center space-x-6">
-        <button className="relative p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
-          <Bell size={20} />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-        </button>
 
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center space-x-3 hover:bg-slate-50 rounded-lg px-3 py-2 transition-colors">
@@ -48,8 +73,8 @@ export function Header() {
               </AvatarFallback>
             </Avatar>
             <div className="text-left">
-              <p className="text-sm font-medium text-slate-800">Nishan Kumar</p>
-              <p className="text-xs text-slate-500">Super Admin</p>
+              <p className="text-sm font-medium text-slate-800">{userData?.email || 'User'}</p>
+              <p className="text-xs text-slate-500">{userData?.access_level || 'Viewer'}</p>
             </div>
             <ChevronDown size={16} className="text-slate-400" />
           </DropdownMenuTrigger>
