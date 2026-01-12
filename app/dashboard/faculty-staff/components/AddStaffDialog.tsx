@@ -161,19 +161,29 @@ export default function AddStaffDialog({ open: controlledOpen, onOpenChange, onS
         console.log("Staff updated successfully");
         toast.success("Staff updated successfully!");
       } else {
-        // Create flow - Generate doc_id
-        const { data: existingStaff, error: countError } = await supabase
+        // Create flow - Generate unique doc_id
+        // Query for the max doc_id to generate the next sequential ID
+        const { data: maxDocIdData, error: maxError } = await supabase
           .from(Tables.FacultyStaff)
-          .select("id", { count: "exact", head: true });
+          .select("doc_id")
+          .order("doc_id", { ascending: false })
+          .limit(1)
+          .single();
 
-        let docId = "A-1021"; // Default fallback
-        if (!countError && existingStaff !== null) {
-          // Generate doc_id based on existing count
-          const count = Array.isArray(existingStaff) ? existingStaff.length : 0;
-          docId = `A-${String(1021 + count).padStart(4, '0')}`;
+        let docId = "A-1021"; // Default starting point
+        if (!maxError && maxDocIdData && maxDocIdData.doc_id) {
+          // Extract numeric part from doc_id (e.g., "A-1021" -> 1021)
+          const match = maxDocIdData.doc_id.match(/A-(\d+)/);
+          if (match) {
+            const lastNumber = parseInt(match[1], 10);
+            docId = `A-${String(lastNumber + 1).padStart(4, '0')}`;
+          }
         }
 
-        const { error: insertError } = await supabase.from(Tables.FacultyStaff).insert([
+        console.log("Generated doc_id:", docId);
+
+        // Use upsert to handle any edge case duplicates gracefully
+        const { error: insertError } = await supabase.from(Tables.FacultyStaff).upsert(
           {
             doc_id: docId,
             name: data.name,
@@ -182,8 +192,14 @@ export default function AddStaffDialog({ open: controlledOpen, onOpenChange, onS
             image_url: publicUrl,
             visibility: true,
           },
-        ]);
-        if (insertError) throw insertError;
+          {
+            onConflict: "doc_id",
+          }
+        );
+        if (insertError) {
+          console.error("Insert error:", insertError);
+          throw insertError;
+        }
         toast.success("Staff added successfully!");
       }
 
