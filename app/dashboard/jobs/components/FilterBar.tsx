@@ -14,9 +14,15 @@ interface FilterBarProps {
   onSearch: (query: string) => void;
   onAdd?: () => void;
   onDeleteSelected?: () => void;
+  isDeletingSelected?: boolean;
 }
 
-export default function FilterBar({ onSearch, onAdd, onDeleteSelected }: FilterBarProps) {
+export default function FilterBar({
+  onSearch,
+  onAdd,
+  onDeleteSelected,
+  isDeletingSelected = false,
+}: FilterBarProps) {
   return (
     <div className="p-6 border-b border-slate-200 flex items-center justify-between">
       <div className="flex items-center space-x-3">
@@ -34,7 +40,14 @@ export default function FilterBar({ onSearch, onAdd, onDeleteSelected }: FilterB
             <Button variant="outline">Bulk Action</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem>Delete Selected</DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={isDeletingSelected}
+              onClick={() => {
+                if (typeof onDeleteSelected === "function") onDeleteSelected();
+              }}
+            >
+              {isDeletingSelected ? "Deleting..." : "Delete Selected"}
+            </DropdownMenuItem>
             <DropdownMenuItem>Export Selected</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

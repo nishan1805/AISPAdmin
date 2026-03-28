@@ -85,7 +85,10 @@ export default function FileUpload({
               type="button"
               className="text-indigo-600 mt-1 underline"
               disabled={disabled}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
             >
               Browse File
             </Button>

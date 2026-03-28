@@ -19,27 +19,19 @@ interface FilterBarProps {
 }
 
 export default function FilterBar({ onSearch, onAdd, onDeleteSelected, permissions }: FilterBarProps) {
-  // Debug: Log permissions to console
-  console.log('FilterBar permissions:', permissions);
-
   return (
     <div className="p-6 border-b border-slate-200 flex items-center justify-between">
       <div className="flex items-center space-x-3">
-        {/* Debug: Show permissions status */}
-        <div className="text-xs text-gray-500 mr-4">
-          Role: {permissions?.role || 'None'} | Can Manage: {permissions?.canManageUsers ? 'Yes' : 'No'}
-        </div>
-
-        {/* Temporary: Always show Add User button for debugging */}
-        <Button
-          onClick={() => {
-            if (typeof onAdd === "function") onAdd();
-          }}
-          variant={permissions?.canManageUsers ? "default" : "outline"}
-        >
-          <Plus size={18} className="mr-2" />
-          Add User {permissions?.canManageUsers ? '(Admin)' : '(Debug)'}
-        </Button>
+        {permissions?.canManageUsers && (
+          <Button
+            onClick={() => {
+              if (typeof onAdd === "function") onAdd();
+            }}
+          >
+            <Plus size={18} className="mr-2" />
+            Add User
+          </Button>
+        )}
 
         {permissions?.canDelete && (
           <DropdownMenu>
@@ -54,7 +46,6 @@ export default function FilterBar({ onSearch, onAdd, onDeleteSelected, permissio
               >
                 Delete Selected
               </DropdownMenuItem>
-              <DropdownMenuItem>Export Selected</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -67,12 +58,12 @@ export default function FilterBar({ onSearch, onAdd, onDeleteSelected, permissio
             size={18}
           />
           <Input
-            placeholder="Search"
+            placeholder="Search users"
             className="pl-10 w-64"
             onChange={(e) => onSearch(e.target.value)}
           />
         </div>
-        <Button variant="outline" size="icon">
+        <Button variant="outline" size="icon" disabled>
           <Filter size={18} />
         </Button>
       </div>

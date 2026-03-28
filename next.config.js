@@ -8,6 +8,13 @@ const nextConfig = {
   },
   images: { unoptimized: true },
   trailingSlash: true,
+  webpack: (config, { isServer }) => {
+    // Suppress Supabase critical dependency warnings
+    config.ignoreWarnings = [
+      { module: /node_modules\/@supabase/ },
+    ];
+    return config;
+  },
 };
 
 module.exports = nextConfig;

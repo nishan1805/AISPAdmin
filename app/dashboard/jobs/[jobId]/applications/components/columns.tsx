@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { FileText, MoreVertical, Download } from "lucide-react";
+import { FileText, MoreVertical, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -20,6 +20,7 @@ export type JobApplication = {
     attachment: string;
     status: "New" | "Shortlisted" | "Interviewed" | "Rejected" | "Selected";
     notes: string;
+    statusField?: "status" | "application_status";
 };
 
 const getStatusBadgeClass = (status: string) => {
@@ -53,10 +54,6 @@ export const getApplicationColumns = (
             render: (_: JobApplication, index: number) => index + 1,
         },
         {
-            key: "applicantSno",
-            label: "Applicant S.No.",
-        },
-        {
             key: "fullName",
             label: "Full Name",
         },
@@ -83,10 +80,10 @@ export const getApplicationColumns = (
                             href={row.attachment}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="hover:underline flex items-center"
+                            className="hover:underline flex items-center gap-1 text-blue-600"
                         >
-                            <Download size={14} className="mr-1" />
-                            PDF
+                            View file
+                            <ExternalLink size={14} />
                         </a>
                     ) : (
                         <span className="text-slate-400">No File</span>

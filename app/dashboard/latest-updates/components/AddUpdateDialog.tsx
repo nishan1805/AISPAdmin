@@ -137,7 +137,6 @@ export default function AddUpdateDialog({ open: controlledOpen, onOpenChange, on
           description: data.description,
         };
 
-        // Only update file_url if we have a new file or explicitly removing
         if (shouldDeleteOldFile) {
           payload.file_url = publicUrl; // This will be null if removing file
         }

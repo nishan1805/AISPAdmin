@@ -30,6 +30,61 @@ export default function JobsPage() {
   const [confirmActionType, setConfirmActionType] = useState<ActionType>(null);
   const [confirmTarget, setConfirmTarget] = useState<any | null>(null);
 
+  const collectStoragePathsFromApplications = (applications: any[] = []) => {
+    const filesToDelete = new Set<string>();
+
+    applications.forEach((app: any) => {
+      const possibleUrls = [app.attachment_url, app.resume_url, app.file_url].filter(Boolean);
+
+      possibleUrls.forEach((fileUrl: string) => {
+        try {
+          const urlParts = fileUrl.split("/");
+          const bucketIndex = urlParts.findIndex((part: string) => part === "AISPPUR");
+
+          if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
+            const filePath = urlParts.slice(bucketIndex + 1).join("/");
+            filesToDelete.add(decodeURIComponent(filePath));
+          }
+        } catch (_e) {
+          console.warn("Could not parse file URL:", fileUrl);
+        }
+      });
+    });
+
+    return Array.from(filesToDelete);
+  };
+
+  const deleteJobApplicationsByKeys = async (keys: string[]) => {
+    const uniqueKeys = Array.from(new Set(keys.filter(Boolean).map((k) => String(k))));
+    const allApplications: any[] = [];
+
+    for (const key of uniqueKeys) {
+      const { data: applications, error: fetchError } = await supabase
+        .from("job_applications")
+        .select("id, attachment_url")
+        .eq("job_id", key);
+
+      if (fetchError && fetchError.code !== "22P02") {
+        return { error: fetchError, applications: allApplications };
+      }
+
+      if (applications?.length) {
+        allApplications.push(...applications);
+      }
+
+      const { error: deleteError } = await supabase
+        .from("job_applications")
+        .delete()
+        .eq("job_id", key);
+
+      if (deleteError && deleteError.code !== "22P02") {
+        return { error: deleteError, applications: allApplications };
+      }
+    }
+
+    return { error: null, applications: allApplications };
+  };
+
   // -------------------- Fetch Data --------------------
   const fetchData = async () => {
     setLoading(true);
@@ -127,18 +182,13 @@ export default function JobsPage() {
 
       if (confirmActionType === "delete") {
         const { id } = confirmTarget;
+        const selectedJob = data.find((job) => String(job.id) === String(id));
+        const candidateKeys = [String(id), selectedJob?.jobId ? String(selectedJob.jobId) : ""];
 
-        // First, get all applications for this job to clean up their files
-        const { data: applications, error: fetchError } = await supabase
-          .from("job_applications")
-          .select("attachment_url")
-          .eq("job_id", id);
+        // Delete child applications first so job delete works even without DB-level cascade.
+        const { error: applicationsDeleteError, applications } = await deleteJobApplicationsByKeys(candidateKeys);
+        if (applicationsDeleteError) throw applicationsDeleteError;
 
-        if (fetchError) {
-          console.warn("Could not fetch applications for file cleanup:", fetchError);
-        }
-
-        // Delete the job (this will cascade delete applications due to foreign key constraint)
         const { error } = await supabase
           .from(Tables.Jobs)
           .delete()
@@ -148,25 +198,7 @@ export default function JobsPage() {
 
         // Clean up application files from storage
         if (applications && applications.length > 0) {
-          const filesToDelete: string[] = [];
-
-          applications.forEach((app) => {
-            if (app.attachment_url) {
-              try {
-                const fileUrl = app.attachment_url;
-                const urlParts = fileUrl.split("/");
-                const bucketIndex = urlParts.findIndex((part: string) => part === "AISPPUR");
-
-                if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
-                  const filePath = urlParts.slice(bucketIndex + 1).join("/");
-                  const decodedPath = decodeURIComponent(filePath);
-                  filesToDelete.push(decodedPath);
-                }
-              } catch (e) {
-                console.warn("Could not parse file URL:", app.attachment_url);
-              }
-            }
-          });
+          const filesToDelete = collectStoragePathsFromApplications(applications);
 
           if (filesToDelete.length > 0) {
             try {
@@ -207,18 +239,19 @@ export default function JobsPage() {
 
     try {
       const ids = selectedRows.map((id) => String(id));
+      const selectedJobs = data.filter((row) => ids.includes(String(row.id)));
+      const keyPairs = selectedJobs.flatMap((job) => [String(job.id), String(job.jobId || "")]);
+      const candidateKeys = keyPairs.length > 0 ? keyPairs : ids;
 
-      // First, get all applications for these jobs to clean up their files
-      const { data: applications, error: fetchError } = await supabase
-        .from("job_applications")
-        .select("attachment_url")
-        .in("job_id", ids);
+      // Delete child applications first so parent jobs can be deleted safely.
+      const { error: applicationsDeleteError, applications } = await deleteJobApplicationsByKeys(candidateKeys);
 
-      if (fetchError) {
-        console.warn("Could not fetch applications for file cleanup:", fetchError);
+      if (applicationsDeleteError) {
+        console.error("Failed to delete selected job applications:", applicationsDeleteError);
+        toast.error("Failed to delete selected items");
+        return;
       }
 
-      // Delete the jobs (this will cascade delete applications due to foreign key constraint)
       const { error } = await supabase
         .from(Tables.Jobs)
         .delete()
@@ -229,28 +262,10 @@ export default function JobsPage() {
         toast.error("Failed to delete selected items");
         return;
       }
-
+        
       // Clean up application files from storage
       if (applications && applications.length > 0) {
-        const filesToDelete: string[] = [];
-
-        applications.forEach((app) => {
-          if (app.attachment_url) {
-            try {
-              const fileUrl = app.attachment_url;
-              const urlParts = fileUrl.split("/");
-              const bucketIndex = urlParts.findIndex((part: string) => part === "AISPPUR");
-
-              if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
-                const filePath = urlParts.slice(bucketIndex + 1).join("/");
-                const decodedPath = decodeURIComponent(filePath);
-                filesToDelete.push(decodedPath);
-              }
-            } catch (e) {
-              console.warn("Could not parse file URL:", app.attachment_url);
-            }
-          }
-        });
+        const filesToDelete = collectStoragePathsFromApplications(applications);
 
         if (filesToDelete.length > 0) {
           try {

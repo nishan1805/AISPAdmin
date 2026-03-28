@@ -87,9 +87,15 @@ export default function JobApplicationsPage() {
                     phoneNo: r.phone_no ?? "",
                     emailId: r.email_id ?? "",
                     appliedOn: r.applied_on ?? "",
-                    attachment: r.attachment_url ?? "",
-                    status: r.status ?? "New",
+                    attachment: r.attachment_url ?? r.resume_url ?? r.file_url ?? "",
+                    status: r.application_status ?? r.status ?? "New",
                     notes: r.notes ?? "",
+                    statusField:
+                        r.application_status !== undefined && r.application_status !== null
+                            ? "application_status"
+                            : r.status !== undefined && r.status !== null
+                                ? "status"
+                                : "application_status",
                 }))
             );
         }
@@ -119,6 +125,17 @@ export default function JobApplicationsPage() {
     const handleDelete = (id: string) => {
         setDeleteTargetId(id);
         setDeleteDialogOpen(true);
+    };
+
+    const handleStatusUpdateSuccess = async (updated: { id: string; status: JobApplication["status"]; notes: string; }) => {
+        setData((prev) =>
+            prev.map((row) =>
+                row.id === updated.id
+                    ? { ...row, status: updated.status, notes: updated.notes }
+                    : row
+            )
+        );
+        await fetchData();
     };
 
     const confirmDelete = async () => {
@@ -240,9 +257,10 @@ export default function JobApplicationsPage() {
                         setStatusDialogOpen(open);
                         if (!open) setEditTarget(null);
                     }}
-                    onSuccess={fetchData}
+                    onSuccess={handleStatusUpdateSuccess}
                     initialData={editTarget}
-                />                <ConfirmActionDialog
+                />
+                <ConfirmActionDialog
                     open={deleteDialogOpen}
                     onOpenChange={setDeleteDialogOpen}
                     title="Do you want to delete this application?"

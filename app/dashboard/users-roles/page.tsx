@@ -37,12 +37,18 @@ export default function UsersRolesPage() {
 
     const from = (page - 1) * rowsPerPage;
     const to = from + rowsPerPage - 1;
-
-    const { data: rows, error, count } = await supabase
+    let query = supabase
       .from(Tables.UsersRoles)
       .select("*", { count: "exact" })
-      .order("created_at", { ascending: false })
-      .range(from, to);
+      .order("created_at", { ascending: false });
+
+    if (searchQuery.trim()) {
+      query = query.or(
+        `name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,access_level.ilike.%${searchQuery}%`
+      );
+    }
+
+    const { data: rows, error, count } = await query.range(from, to);
 
     if (error) {
       console.error("Failed to fetch users:", error);
@@ -55,10 +61,10 @@ export default function UsersRolesPage() {
         userId: user.user_id ?? user.id ?? "",
         name: user.name ?? "",
         email: user.email ?? "",
-        role: user.role ?? "",
+        role: user.role ?? user.access_level ?? "",
         department: user.department ?? "",
-        accessLevel: user.access_level ?? "",
-        status: user.status ?? "Active",
+        accessLevel: user.access_level ?? user.role ?? "Editor",
+        status: user.status ?? "Invited",
         lastSignIn: null,
         emailConfirmed: false,
       }));
@@ -204,7 +210,7 @@ export default function UsersRolesPage() {
   // -------------------- Lifecycle --------------------
   useEffect(() => {
     fetchData();
-  }, [page, rowsPerPage]);
+  }, [page, rowsPerPage, searchQuery]);
 
   // -------------------- JSX --------------------
   if (permissionsLoading) {
@@ -301,4 +307,3 @@ export default function UsersRolesPage() {
     </div>
   );
 }
-

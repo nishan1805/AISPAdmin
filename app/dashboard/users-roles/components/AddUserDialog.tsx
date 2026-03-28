@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import {
@@ -17,17 +17,15 @@ import { toast } from "sonner";
 import { supabase } from "@/supabase/client";
 import Tables from "@/lib/tables";
 import * as yupLib from "yup";
-import { Resend } from "resend";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const userSchema = yupLib.object({
   name: yupLib.string().required("Name is required"),
-  email: yupLib.string().email("Invalid email").when('$isEditing', {
-    is: true,
-    then: (schema) => schema.optional(),
-    otherwise: (schema) => schema.required("Email is required")
-  }),
-  accessLevel: yupLib.string().oneOf(["Admin", "Editor", "Viewer"], "Invalid role").required("Role is required"),
+  email: yupLib.string().email("Invalid email").optional(),
+  accessLevel: yupLib
+    .string()
+    .oneOf(["Admin", "Editor"], "Invalid role")
+    .required("Role is required"),
 });
 
 type UserForm = yupLib.InferType<typeof userSchema>;
@@ -50,24 +48,33 @@ export default function AddUserDialog({ open: controlledOpen, onOpenChange, onSu
   const open = typeof controlledOpen === "boolean" ? controlledOpen : internalOpen;
   const setOpen = typeof controlledOpen === "boolean" ? onOpenChange ?? (() => { }) : setInternalOpen;
 
-  const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<UserForm>({
+  const { register, handleSubmit, reset, control, setValue, formState: { errors, isSubmitting } } = useForm<UserForm>({
     resolver: yupResolver(userSchema),
-    context: { isEditing: !!(initialData && initialData.id) }
+    defaultValues: {
+      name: "",
+      email: "",
+      accessLevel: "Editor",
+    },
   });
+
+  useEffect(() => {
+    if (initialData?.id) {
+      setValue("name", initialData.name || "");
+      setValue("email", initialData.email || "");
+      setValue("accessLevel", (initialData.accessLevel as "Admin" | "Editor") || "Editor");
+    } else {
+      reset({ name: "", email: "", accessLevel: "Editor" });
+    }
+  }, [initialData, setValue, reset]);
 
   const onSubmit = async (data: UserForm) => {
     try {
-      // Debug: Check current user session
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      console.log('Current user creating new user:', currentUser);
-
-      if (initialData && initialData.id) {
-        // Edit flow - only update the users_roles table
+      if (initialData?.id) {
         const { error: updateError } = await supabase
           .from(Tables.UsersRoles)
           .update({
             name: data.name,
-            role: "Administrator", // Always set role to Administrator
+            role: data.accessLevel,
             access_level: data.accessLevel,
           })
           .eq("id", initialData.id);
@@ -76,92 +83,55 @@ export default function AddUserDialog({ open: controlledOpen, onOpenChange, onSu
 
         toast.success("User updated successfully");
       } else {
-        // Create flow
         if (!data.email) {
-          throw new Error("Email is required for new users");
+          throw new Error("Email is required for invite");
         }
 
-        // Create user in Supabase Auth with a temporary password
-        const tempPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: data.email!,
-          password: tempPassword,
-          options: {
-            data: {
-              name: data.name,
-              role: "Administrator", // Always set role to Administrator
-              access_level: data.accessLevel,
-            }
-          }
-        });
-
-        if (authError) throw authError;
-
-        if (!authData.user) {
-          throw new Error("Failed to create user account");
+        const token = session?.access_token;
+        if (!token) {
+          throw new Error("Session expired. Please login again.");
         }
 
-        // Wait a moment for the user to be fully created in auth.users
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Store additional user info in users_roles table
-        console.log('Attempting to insert into users_roles:', {
-          user_id: authData.user.id,
-          name: data.name,
-          email: data.email,
-          role: "Administrator",
-          department: "",
-          access_level: data.accessLevel,
-          status: "Active",
-        });
-
-        const { error: insertError } = await supabase.from(Tables.UsersRoles).insert([
-          {
-            user_id: authData.user.id,
+        const response = await fetch("/api/admin/invite-user", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
             name: data.name,
             email: data.email,
-            role: "Administrator", // Always set role to Administrator
-            department: "", // Default empty department
-            access_level: data.accessLevel,
-            status: "Active",
-          },
-        ]);
+            accessLevel: data.accessLevel,
+          }),
+        });
 
-        console.log('Insert result:', { data: null, error: insertError });
+        const payload = await response.json();
 
-        if (insertError) {
-          console.error('Insert error details:', insertError);
-          throw insertError;
+        if (!response.ok) {
+          throw new Error(payload?.error || "Failed to invite user");
         }
 
-        // Send password reset email instead of credentials
-        try {
-          const { error: resetError } = await supabase.auth.resetPasswordForEmail(data.email!, {
-            redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/set-password`,
-          });
-
-          if (resetError) throw resetError;
-        } catch (emailError) {
-          console.error("Failed to send password reset email:", emailError);
-          toast.warning("User created but failed to send password reset email. Please check email configuration.");
-        }
-
-        toast.success("User created successfully and password reset email sent");
+        toast.success(payload?.message || "Invite sent successfully");
       }
 
-      reset();
+      reset({ name: "", email: "", accessLevel: "Editor" });
       setOpen(false);
       if (onSuccess) onSuccess();
     } catch (err: any) {
       console.error("Error creating/updating user:", err);
       toast.error(err.message || "Failed to create/update user");
     }
-  }; return (
+  };
+
+  return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-lg p-6">
         <DialogHeader>
-          <DialogTitle>{initialData && initialData.id ? "Edit User" : "Add User"}</DialogTitle>
+          <DialogTitle>{initialData?.id ? "Edit User Role" : "Invite User"}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
@@ -176,11 +146,11 @@ export default function AddUserDialog({ open: controlledOpen, onOpenChange, onSu
             <Input
               placeholder="Email ID"
               {...register("email")}
-              disabled={!!(initialData && initialData.id)}
+              disabled={!!initialData?.id}
             />
             {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
-            {initialData && initialData.id && (
-              <p className="text-xs text-gray-500 mt-1">Email cannot be changed after account creation</p>
+            {initialData?.id && (
+              <p className="text-xs text-gray-500 mt-1">Email cannot be changed after invite</p>
             )}
           </div>
 
@@ -196,8 +166,7 @@ export default function AddUserDialog({ open: controlledOpen, onOpenChange, onSu
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Admin">Admin - Full access</SelectItem>
-                    <SelectItem value="Editor">Editor - Create and edit content</SelectItem>
-                    <SelectItem value="Viewer">Viewer - Read-only access</SelectItem>
+                    <SelectItem value="Editor">Editor - Content management</SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -206,15 +175,15 @@ export default function AddUserDialog({ open: controlledOpen, onOpenChange, onSu
           </div>
 
           <DialogFooter className="flex justify-end gap-3 pt-4">
-            <Button type="button" onClick={() => { reset(); setOpen(false); }} disabled={isSubmitting}>Cancel</Button>
+            <Button type="button" onClick={() => { reset({ name: "", email: "", accessLevel: "Editor" }); setOpen(false); }} disabled={isSubmitting}>Cancel</Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting
-                ? initialData && initialData.id
+                ? initialData?.id
                   ? "Updating..."
-                  : "Creating..."
-                : initialData && initialData.id
+                  : "Inviting..."
+                : initialData?.id
                   ? "Update User"
-                  : "Create User"}
+                  : "Send Invite"}
             </Button>
           </DialogFooter>
         </form>

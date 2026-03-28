@@ -15,6 +15,7 @@ interface ConfirmActionDialogProps {
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
   variant?: Variant;
+  isLoading?: boolean;
 }
 
 export default function ConfirmActionDialog({
@@ -26,6 +27,7 @@ export default function ConfirmActionDialog({
   onConfirm,
   onOpenChange,
   variant = "danger",
+  isLoading = false,
 }: ConfirmActionDialogProps) {
   const confirmClass =
     variant === "danger"
@@ -35,7 +37,13 @@ export default function ConfirmActionDialog({
       : "bg-blue-600 hover:bg-blue-700";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (isLoading) return;
+        onOpenChange(nextOpen);
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -43,8 +51,20 @@ export default function ConfirmActionDialog({
         <DialogDescription className="mt-2 mb-4">{description}</DialogDescription>
         <DialogFooter>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>{cancelLabel}</Button>
-            <Button className={`${confirmClass} text-white`} onClick={() => { onConfirm(); }}>
+            <Button
+              variant="outline"
+              disabled={isLoading}
+              onClick={() => onOpenChange(false)}
+            >
+              {cancelLabel}
+            </Button>
+            <Button
+              className={`${confirmClass} text-white`}
+              disabled={isLoading}
+              onClick={() => {
+                onConfirm();
+              }}
+            >
               {confirmLabel}
             </Button>
           </div>

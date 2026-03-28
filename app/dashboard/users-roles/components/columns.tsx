@@ -19,7 +19,7 @@ export type UserRole = {
   role: string;
   department: string;
   accessLevel: string;
-  status: "Active" | "Inactive";
+  status: "Invited" | "Active" | "Inactive";
   lastSignIn?: string | null;
   emailConfirmed?: boolean;
 };
@@ -39,20 +39,27 @@ export const getUserRoleColumns = (
     { key: "userId", label: "User ID" },
     { key: "name", label: "Name" },
     { key: "email", label: "Email" },
-    { key: "role", label: "Role" },
-    { key: "department", label: "Department" },
-    { key: "accessLevel", label: "Access Level" },
+    { key: "accessLevel", label: "Role" },
     {
       key: "status",
       label: "Status",
-      render: (row: UserRole) => (
-        <Badge
-          className={row.status === "Active" ? "bg-green-100 text-green-700 cursor-pointer" : "bg-red-100 text-red-700 cursor-pointer"}
-          onClick={() => permissions?.canEdit && onToggleStatus(row.id, row.status)}
-        >
-          {row.status}
-        </Badge>
-      ),
+      render: (row: UserRole) => {
+        const styles =
+          row.status === "Active"
+            ? "bg-green-100 text-green-700 cursor-pointer"
+            : row.status === "Invited"
+              ? "bg-amber-100 text-amber-700 cursor-pointer"
+              : "bg-red-100 text-red-700 cursor-pointer";
+
+        return (
+          <Badge
+            className={styles}
+            onClick={() => permissions?.canEdit && onToggleStatus(row.id, row.status)}
+          >
+            {row.status}
+          </Badge>
+        );
+      },
     },
     {
       key: "actions",
@@ -60,15 +67,16 @@ export const getUserRoleColumns = (
       render: (row: UserRole) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button>
+            <Button variant="ghost" size="icon">
               <MoreVertical size={18} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {permissions?.canEdit && (
-              <DropdownMenuItem onClick={() => { if (typeof onEdit === "function") onEdit(row); }}>Edit</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { if (typeof onEdit === "function") onEdit(row); }}>
+                Edit
+              </DropdownMenuItem>
             )}
-            <DropdownMenuItem>View</DropdownMenuItem>
             {permissions?.canDelete && (
               <DropdownMenuItem
                 className="text-red-600"
@@ -79,38 +87,6 @@ export const getUserRoleColumns = (
                 Delete
               </DropdownMenuItem>
             )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
-  ]; export const columns = [
-    { key: "select", label: "" },
-    { key: "userId", label: "User ID" },
-    { key: "name", label: "Name" },
-    { key: "role", label: "Role" },
-    { key: "department", label: "Department" },
-    { key: "accessLevel", label: "Access Level" },
-    {
-      key: "status",
-      label: "Status",
-      render: (row: UserRole) => (
-        <Badge className={row.status === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}>{row.status}</Badge>
-      ),
-    },
-    {
-      key: "actions",
-      label: "",
-      render: () => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button>
-              <MoreVertical size={18} />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>Edit</DropdownMenuItem>
-            <DropdownMenuItem>View</DropdownMenuItem>
-            <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),

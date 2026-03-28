@@ -23,7 +23,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { supabase } from "@/supabase/client"; const statusOptions = [
+import { supabase } from "@/supabase/client";
+
+const statusOptions = [
     { value: "New", label: "New" },
     { value: "Shortlisted", label: "Shortlisted" },
     { value: "Interviewed", label: "Interviewed" },
@@ -32,10 +34,10 @@ import { supabase } from "@/supabase/client"; const statusOptions = [
 ];
 
 const applicationStatusSchema = yup.object({
-    fullName: yup.string().required("Full name is required"),
-    phoneNo: yup.string().required("Phone number is required"),
-    emailId: yup.string().email("Invalid email").required("Email is required"),
-    appliedOn: yup.string().required("Applied date is required"),
+    fullName: yup.string().optional(),
+    phoneNo: yup.string().optional(),
+    emailId: yup.string().email("Invalid email").optional(),
+    appliedOn: yup.string().optional(),
     status: yup.string().oneOf(["New", "Shortlisted", "Interviewed", "Rejected", "Selected"], "Please select a valid status").required("Status is required"),
     notes: yup.string().optional(),
 });
@@ -45,7 +47,7 @@ type ApplicationStatusFormData = yup.InferType<typeof applicationStatusSchema>;
 interface ApplicationStatusDialogProps {
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
-    onSuccess?: () => void;
+    onSuccess?: (updated: { id: string; status: "New" | "Shortlisted" | "Interviewed" | "Rejected" | "Selected"; notes: string; }) => void;
     initialData?: {
         id?: string | number;
         fullName?: string;
@@ -54,6 +56,7 @@ interface ApplicationStatusDialogProps {
         appliedOn?: string;
         status?: string;
         notes?: string;
+        statusField?: "status" | "application_status";
     } | null;
 }
 
@@ -96,32 +99,42 @@ export default function ApplicationStatusDialog({
         } else {
             reset();
         }
-    }, [initialData]);
+    }, [initialData, reset, setValue]);
 
     const onSubmit = async (data: ApplicationStatusFormData) => {
         try {
             if (initialData && initialData.id) {
+                const targetId =
+                    typeof initialData.id === "string" && /^\d+$/.test(initialData.id)
+                        ? Number(initialData.id)
+                        : initialData.id;
+
                 // UPDATE mode
+                const statusField = initialData.statusField ?? "status";
+                const updatePayload =
+                    statusField === "application_status"
+                        ? { application_status: data.status, notes: data.notes }
+                        : { status: data.status, notes: data.notes };
+
                 const { error: updateErr } = await supabase
                     .from("job_applications")
-                    .update({
-                        full_name: data.fullName,
-                        phone_no: data.phoneNo,
-                        email_id: data.emailId,
-                        applied_on: data.appliedOn,
-                        status: data.status,
-                        notes: data.notes,
-                    })
-                    .eq("id", initialData.id);
+                    .update(updatePayload)
+                    .eq("id", targetId);
 
                 if (updateErr) throw updateErr;
 
                 toast.success("Application status updated successfully!");
+                if (onSuccess) {
+                    onSuccess({
+                        id: String(initialData.id),
+                        status: data.status as "New" | "Shortlisted" | "Interviewed" | "Rejected" | "Selected",
+                        notes: data.notes || "",
+                    });
+                }
             }
 
             reset();
             setOpen(false);
-            if (onSuccess) onSuccess();
         } catch (err: any) {
             toast.error(err.message || "Something went wrong");
         }
@@ -271,7 +284,6 @@ export default function ApplicationStatusDialog({
                         <Button
                             type="submit"
                             disabled={isSubmitting}
-                            onClick={() => handleSubmit(onSubmit)()}
                         >
                             {isSubmitting ? "Updating..." : "Update Application"}
                         </Button>
