@@ -24,7 +24,7 @@ const userSchema = yupLib.object({
   email: yupLib.string().email("Invalid email").optional(),
   accessLevel: yupLib
     .string()
-    .oneOf(["Admin", "Editor"], "Invalid role")
+    .oneOf(["Administrator", "Editor"], "Invalid role")
     .required("Role is required"),
 });
 
@@ -61,7 +61,7 @@ export default function AddUserDialog({ open: controlledOpen, onOpenChange, onSu
     if (initialData?.id) {
       setValue("name", initialData.name || "");
       setValue("email", initialData.email || "");
-      setValue("accessLevel", (initialData.accessLevel as "Admin" | "Editor") || "Editor");
+      setValue("accessLevel", (initialData.accessLevel as "Administrator" | "Editor") || "Editor");
     } else {
       reset({ name: "", email: "", accessLevel: "Editor" });
     }
@@ -71,11 +71,10 @@ export default function AddUserDialog({ open: controlledOpen, onOpenChange, onSu
     try {
       if (initialData?.id) {
         const { error: updateError } = await supabase
-          .from(Tables.UsersRoles)
+          .from(Tables.Profiles)
           .update({
-            name: data.name,
+            full_name: data.name,
             role: data.accessLevel,
-            access_level: data.accessLevel,
           })
           .eq("id", initialData.id);
 
@@ -165,7 +164,7 @@ export default function AddUserDialog({ open: controlledOpen, onOpenChange, onSu
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Admin">Admin - Full access</SelectItem>
+                    <SelectItem value="Administrator">Administrator - Full access</SelectItem>
                     <SelectItem value="Editor">Editor - Content management</SelectItem>
                   </SelectContent>
                 </Select>

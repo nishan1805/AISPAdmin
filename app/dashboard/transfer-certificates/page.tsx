@@ -35,11 +35,16 @@ export default function TransferCertificatesPage() {
     const from = (page - 1) * rowsPerPage;
     const to = from + rowsPerPage - 1;
 
-    const { data: rows, error, count } = await supabase
+    let query = supabase
       .from(Tables.TransferCertificates)
       .select("*", { count: "exact" })
-      .order("created_at", { ascending: false })
-      .range(from, to);
+      .order("created_at", { ascending: false });
+
+    if (searchQuery.trim()) {
+      query = query.ilike("student_name", `%${searchQuery.trim()}%`);
+    }
+
+    const { data: rows, error, count } = await query.range(from, to);
 
     if (error) {
       console.error("Failed to fetch TCs:", error);
@@ -196,7 +201,7 @@ export default function TransferCertificatesPage() {
   // -------------------- Lifecycle --------------------
   useEffect(() => {
     fetchData();
-  }, [page, rowsPerPage]);
+  }, [page, rowsPerPage, searchQuery]);
 
   // -------------------- JSX --------------------
   return (
@@ -207,7 +212,10 @@ export default function TransferCertificatesPage() {
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
         <FilterBar
-          onSearch={setSearchQuery}
+          onSearch={(value) => {
+            setSearchQuery(value);
+            setPage(1);
+          }}
           onAdd={() => setIsDialogOpen(true)}
           onDeleteSelected={deleteSelected}
         />
@@ -276,4 +284,3 @@ export default function TransferCertificatesPage() {
     </div>
   );
 }
-

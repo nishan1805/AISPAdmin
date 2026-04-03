@@ -19,36 +19,42 @@ interface FilterBarProps {
 }
 
 export default function FilterBar({ onSearch, onAdd, onDeleteSelected, permissions }: FilterBarProps) {
+  const canManageUsers = !!permissions?.canManageUsers;
+  const canDeleteUsers = !!permissions?.canDelete;
+
   return (
     <div className="p-6 border-b border-slate-200 flex items-center justify-between">
       <div className="flex items-center space-x-3">
-        {permissions?.canManageUsers && (
-          <Button
-            onClick={() => {
-              if (typeof onAdd === "function") onAdd();
-            }}
-          >
-            <Plus size={18} className="mr-2" />
-            Add User
-          </Button>
-        )}
+        <Button
+          // disabled={!canManageUsers}
+          title={canManageUsers ? "Add a new user" : "You do not have permission to add users"}
+          onClick={() => {
+            if (!canManageUsers) return;
+            if (typeof onAdd === "function") onAdd();
+          }}
+        >
+          <Plus size={18} className="mr-2" />
+          Add User
+        </Button>
 
-        {permissions?.canDelete && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">Bulk Action</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem
-                onClick={() => {
-                  if (typeof onDeleteSelected === "function") onDeleteSelected();
-                }}
-              >
-                Delete Selected
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" disabled={!canDeleteUsers} title={canDeleteUsers ? "Bulk actions" : "You do not have delete permission"}>
+              Bulk Action
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem
+              disabled={!canDeleteUsers}
+              onClick={() => {
+                if (!canDeleteUsers) return;
+                if (typeof onDeleteSelected === "function") onDeleteSelected();
+              }}
+            >
+              Delete Selected
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="flex items-center space-x-3">

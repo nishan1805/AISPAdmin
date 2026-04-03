@@ -39,11 +39,16 @@ export default function NewsMediaPage() {
     const from = (page - 1) * rowsPerPage;
     const to = from + rowsPerPage - 1;
 
-    const { data: rows, error, count } = await supabase
+    let query = supabase
       .from(Tables.NewsMedia)
       .select("*", { count: "exact" })
-      .order("created_at", { ascending: false })
-      .range(from, to);
+      .order("created_at", { ascending: false });
+
+    if (searchQuery.trim()) {
+      query = query.ilike("title", `%${searchQuery.trim()}%`);
+    }
+
+    const { data: rows, error, count } = await query.range(from, to);
 
     if (error) {
       console.error("Failed to fetch news media:", error);
@@ -335,7 +340,7 @@ export default function NewsMediaPage() {
   // -------------------- Lifecycle --------------------
   useEffect(() => {
     fetchData();
-  }, [page, rowsPerPage]);
+  }, [page, rowsPerPage, searchQuery]);
 
   // -------------------- JSX --------------------
   return (
@@ -346,7 +351,10 @@ export default function NewsMediaPage() {
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
         <FilterBar
-          onSearch={setSearchQuery}
+          onSearch={(value) => {
+            setSearchQuery(value);
+            setPage(1);
+          }}
           onAdd={() => setIsDialogOpen(true)}
           onDeleteSelected={deleteSelected}
         />

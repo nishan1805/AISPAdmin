@@ -39,7 +39,7 @@ export default function FacultyStaffPage() {
 
     // Apply search filter
     if (searchQuery.trim()) {
-      query = query.or(`name.ilike.%${searchQuery}%,designation.ilike.%${searchQuery}%,category.ilike.%${searchQuery}%,doc_id.ilike.%${searchQuery}%`);
+      query = query.ilike("name", `%${searchQuery.trim()}%`);
     }
 
     const from = (page - 1) * rowsPerPage;
@@ -298,7 +298,10 @@ export default function FacultyStaffPage() {
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
         <FilterBar
-          onSearch={setSearchQuery}
+          onSearch={(value) => {
+            setSearchQuery(value);
+            setPage(1);
+          }}
           onAdd={() => setIsDialogOpen(true)}
           onDeleteSelected={deleteSelected}
         />

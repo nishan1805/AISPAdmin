@@ -96,7 +96,7 @@ export default function JobsPage() {
 
     // Apply search filter
     if (searchQuery.trim()) {
-      query = query.or(`title.ilike.%${searchQuery}%,subject.ilike.%${searchQuery}%`);
+      query = query.ilike("title", `%${searchQuery.trim()}%`);
     }
 
     const from = (page - 1) * rowsPerPage;
@@ -346,7 +346,10 @@ export default function JobsPage() {
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
         <FilterBar
-          onSearch={setSearchQuery}
+          onSearch={(value) => {
+            setSearchQuery(value);
+            setPage(1);
+          }}
           onAdd={() => setIsDialogOpen(true)}
           onDeleteSelected={deleteSelected}
         />

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Tables from '@/lib/tables';
 
-export type UserRole = 'Admin' | 'Editor' | 'Viewer';
+export type UserRole = 'Administrator' | 'Editor';
 
 export interface UserPermissions {
   role: UserRole;
@@ -16,14 +16,13 @@ export interface UserPermissions {
 const normalizeRole = (value?: string | null): UserRole => {
   const role = (value || '').toLowerCase();
 
-  if (role === 'admin' || role === 'administrator') return 'Admin';
-  if (role === 'editor') return 'Editor';
-  return 'Viewer';
+  if (role === 'admin' || role === 'administrator') return 'Administrator';
+  return 'Editor';
 };
 
 const rolePermissions: Record<UserRole, UserPermissions> = {
-  Admin: {
-    role: 'Admin',
+  Administrator: {
+    role: 'Administrator',
     canCreate: true,
     canEdit: true,
     canDelete: true,
@@ -35,15 +34,7 @@ const rolePermissions: Record<UserRole, UserPermissions> = {
     canCreate: true,
     canEdit: true,
     canDelete: false,
-    canManageUsers: false,
-    canAccessSettings: false,
-  },
-  Viewer: {
-    role: 'Viewer',
-    canCreate: false,
-    canEdit: false,
-    canDelete: false,
-    canManageUsers: false,
+    canManageUsers: true,
     canAccessSettings: false,
   },
 };
@@ -64,47 +55,18 @@ export const useUserPermissions = () => {
           return;
         }
 
-        let userData: any = null;
-
-        // Primary lookup by user_id for established accounts.
-        const { data: byUserId } = await supabase
-          .from(Tables.UsersRoles)
-          .select('id, user_id, email, role, access_level, status')
-          .eq('user_id', user.id)
+        const { data: userData } = await supabase
+          .from(Tables.Profiles)
+          .select('id, role')
+          .eq('id', user.id)
           .maybeSingle();
-
-        if (byUserId) {
-          userData = byUserId;
-        } else if (user.email) {
-          // Fallback for invited users where user_id may not yet be linked.
-          const { data: byEmail } = await supabase
-            .from(Tables.UsersRoles)
-            .select('id, user_id, email, role, access_level, status')
-            .eq('email', user.email)
-            .maybeSingle();
-
-          userData = byEmail;
-
-          // Backfill user_id once user signs in.
-          if (byEmail?.id && !byEmail.user_id) {
-            await supabase
-              .from(Tables.UsersRoles)
-              .update({ user_id: user.id, status: byEmail.status || 'Active' })
-              .eq('id', byEmail.id);
-          }
-        }
 
         if (!userData) {
           setPermissions(null);
           return;
         }
 
-        if ((userData.status || '').toLowerCase() === 'inactive') {
-          setPermissions(rolePermissions.Viewer);
-          return;
-        }
-
-        const role = normalizeRole(userData.access_level || userData.role);
+        const role = normalizeRole(userData.role);
         setPermissions(rolePermissions[role]);
       } catch (error) {
         console.error('Error fetching user permissions:', error);

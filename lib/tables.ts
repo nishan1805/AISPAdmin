@@ -6,7 +6,11 @@ export enum Tables {
   TransferCertificates = "transfer_certificates",
   FacultyStaff = "faculty_staff",
   Jobs = "jobs",
-  UsersRoles = "users_roles",
+  Profiles = "profiles",
+}
+export enum UserRoles {
+  Administrator = "Administrator",
+  Editor = "Editor",
 }
 
 export default Tables;

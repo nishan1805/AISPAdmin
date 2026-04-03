@@ -2,9 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Tables from "@/lib/tables";
 
-const normalizeRole = (value?: string | null): "Admin" | "Editor" => {
+const normalizeRole = (value?: string | null): "Administrator" | "Editor" => {
   const role = (value || "").toLowerCase();
-  return role === "admin" || role === "administrator" ? "Admin" : "Editor";
+  return role === "admin" || role === "administrator" ? "Administrator" : "Editor";
+};
+
+const getAuthUserIdByEmail = async (serviceClient: any, email: string) => {
+  const lowerEmail = email.toLowerCase();
+  let page = 1;
+  const perPage = 200;
+
+  while (true) {
+    const { data, error } = await serviceClient.auth.admin.listUsers({ page, perPage });
+    if (error) {
+      console.warn("Could not list auth users:", error.message);
+      return null;
+    }
+
+    const users = data?.users || [];
+    const matched = users.find((u: any) => String(u.email || "").toLowerCase() === lowerEmail);
+    if (matched?.id) return matched.id as string;
+
+    if (users.length < perPage) break;
+    page += 1;
+  }
+
+  return null;
 };
 
 export async function POST(request: NextRequest) {
@@ -41,22 +64,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: actorRole, error: actorRoleError } = await serviceClient
-      .from(Tables.UsersRoles)
-      .select("access_level, role, status")
-      .eq("user_id", actor.id)
+    const { data: actorProfile, error: actorProfileError } = await serviceClient
+      .from(Tables.Profiles)
+      .select("role")
+      .eq("id", actor.id)
       .maybeSingle();
 
-    if (actorRoleError) {
+    if (actorProfileError) {
       return NextResponse.json({ error: "Could not verify permissions" }, { status: 500 });
     }
 
-    const actorAccess = String(actorRole?.access_level || actorRole?.role || "").toLowerCase();
-    const actorStatus = String(actorRole?.status || "").toLowerCase();
-    const isAdmin = actorAccess === "admin" || actorAccess === "administrator";
+    const actorRole = normalizeRole(actorProfile?.role);
 
-    if (!isAdmin || actorStatus === "inactive") {
-      return NextResponse.json({ error: "Only active admins can invite users" }, { status: 403 });
+    if (actorRole !== "Administrator" && actorRole !== "Editor") {
+      return NextResponse.json({ error: "You do not have permission to invite users" }, { status: 403 });
     }
 
     const body = await request.json();
@@ -75,13 +96,7 @@ export async function POST(request: NextRequest) {
 
     const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/set-password`;
 
-    const { data: existingRoleRow } = await serviceClient
-      .from(Tables.UsersRoles)
-      .select("id, user_id, email")
-      .eq("email", email)
-      .maybeSingle();
-
-    let authUserId = existingRoleRow?.user_id || null;
+    let authUserId = await getAuthUserIdByEmail(serviceClient, email);
 
     if (!authUserId) {
       const { data: createdUser, error: createUserError } = await serviceClient.auth.admin.createUser({
@@ -90,7 +105,6 @@ export async function POST(request: NextRequest) {
         user_metadata: {
           name,
           role: accessLevel,
-          access_level: accessLevel,
         },
       });
 
@@ -102,44 +116,30 @@ export async function POST(request: NextRequest) {
         if (!alreadyExists) {
           return NextResponse.json({ error: createUserError.message }, { status: 400 });
         }
+
+        authUserId = await getAuthUserIdByEmail(serviceClient, email);
       } else {
         authUserId = createdUser.user?.id || null;
       }
     }
 
-    if (existingRoleRow?.id) {
-      const { error: updateRoleError } = await serviceClient
-        .from(Tables.UsersRoles)
-        .update({
-          name,
+    if (!authUserId) {
+      return NextResponse.json({ error: "Could not resolve user account for invite" }, { status: 400 });
+    }
+
+    const { error: profileError } = await serviceClient
+      .from(Tables.Profiles)
+      .upsert(
+        {
+          id: authUserId,
+          full_name: name,
           role: accessLevel,
-          access_level: accessLevel,
-          status: "Invited",
-          ...(authUserId ? { user_id: authUserId } : {}),
-        })
-        .eq("id", existingRoleRow.id);
+        },
+        { onConflict: "id" }
+      );
 
-      if (updateRoleError) {
-        return NextResponse.json({ error: updateRoleError.message }, { status: 400 });
-      }
-    } else {
-      const { error: insertRoleError } = await serviceClient
-        .from(Tables.UsersRoles)
-        .insert([
-          {
-            user_id: authUserId,
-            name,
-            email,
-            role: accessLevel,
-            access_level: accessLevel,
-            department: "",
-            status: "Invited",
-          },
-        ]);
-
-      if (insertRoleError) {
-        return NextResponse.json({ error: insertRoleError.message }, { status: 400 });
-      }
+    if (profileError) {
+      return NextResponse.json({ error: profileError.message }, { status: 400 });
     }
 
     const { error: resetError } = await serviceClient.auth.resetPasswordForEmail(email, {

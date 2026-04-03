@@ -60,6 +60,10 @@ export default function MandatoryDisclosurePage() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
   const filteredData = data.filter((item) =>
     item.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -305,7 +309,10 @@ export default function MandatoryDisclosurePage() {
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
         <FilterBar
-          onSearch={setSearchQuery}
+          onSearch={(value) => {
+            setSearchQuery(value);
+            setPage(1);
+          }}
           onAdd={() => setIsDialogOpen(true)}
           onDeleteSelected={deleteSelected}
         />
